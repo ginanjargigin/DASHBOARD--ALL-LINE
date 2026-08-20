@@ -1,95 +1,815 @@
 "use client";
+
 import { useEffect, useMemo, useState } from "react";
 import { getLines, getRecords } from "@/lib/storage";
-import { lineStatus } from "@/lib/calc";
-import LineCard from "@/components/LineCard";
-import Link from "next/link";
+import { actualProduction } from "@/lib/calc";
+import ProductionPlanChart from "@/components/ProductionPlanChart";
+import SalesPlanChart from "@/components/SalesPlanChart";
 
 export default function DashboardPage() {
   const [lines, setLines] = useState([]);
   const [records, setRecords] = useState([]);
-  const [query, setQuery] = useState("");
+  const [selectedLineId, setSelectedLineId] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
   const [now, setNow] = useState(null);
 
+  // =========================================================
+  // LOAD DATA
+  // =========================================================
   useEffect(() => {
-    setLines(getLines());
-    setRecords(getRecords());
+    const refreshData = () => {
+      const nextLines = getLines();
+      const nextRecords = getRecords();
+
+      setLines(nextLines);
+      setRecords(nextRecords);
+
+      // Pilih line pertama secara otomatis
+      if (!selectedLineId && nextLines.length > 0) {
+        setSelectedLineId(nextLines[0].id);
+      }
+
+      // Pilih bulan terbaru secara otomatis
+      if (!selectedMonth && nextRecords.length > 0) {
+        const sorted = [...nextRecords].sort((a, b) =>
+          a.date.localeCompare(b.date)
+        );
+
+        const latestRecord = sorted[sorted.length - 1];
+
+        if (latestRecord?.date) {
+          setSelectedMonth(latestRecord.date.slice(0, 7));
+        }
+      }
+    };
+
+    refreshData();
     setNow(new Date());
-    const t = setInterval(() => setNow(new Date()), 30000);
-    return () => clearInterval(t);
-  }, []);
 
-  const filtered = useMemo(
-    () => lines.filter((l) => l.name.toLowerCase().includes(query.toLowerCase())),
-    [lines, query]
-  );
+    // Refresh data setiap 30 detik
+    const timer = setInterval(() => {
+      refreshData();
+      setNow(new Date());
+    }, 30000);
 
-  const counts = useMemo(() => {
-    const c = { crit: 0, warn: 0, ok: 0, nodata: 0 };
-    lines.forEach((l) => {
-      const st = lineStatus(records.filter((r) => r.lineId === l.id));
-      c[st.level]++;
+    return () => clearInterval(timer);
+  }, [selectedLineId, selectedMonth]);
+
+  // =========================================================
+  // AVAILABLE MONTHS
+  // =========================================================
+  const availableMonths = useMemo(() => {
+    return [
+      ...new Set(
+        records
+          .map((record) => record.date?.slice(0, 7))
+          .filter(Boolean)
+      ),
+    ].sort().reverse();
+  }, [records]);
+
+  // =========================================================
+  // SELECTED LINE
+  // =========================================================
+  const selectedLine = useMemo(() => {
+    return (
+      lines.find((line) => line.id === selectedLineId) ||
+      lines[0] ||
+      null
+    );
+  }, [lines, selectedLineId]);
+
+  // =========================================================
+  // RECORDS FOR SELECTED LINE + MONTH
+  // =========================================================
+  const lineRecords = useMemo(() => {
+    if (!selectedLine) return [];
+
+    return records
+      .filter((record) => {
+        const sameLine = record.lineId === selectedLine.id;
+
+        const sameMonth =
+          !selectedMonth ||
+          record.date?.startsWith(selectedMonth);
+
+        return sameLine && sameMonth;
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [records, selectedLine, selectedMonth]);
+
+  // =========================================================
+  // DAILY PRODUCTION PLAN
+  //
+  // Untuk sementara plan diambil dari record terakhir
+  // yang mempunyai planProduction > 0.
+  //
+  // Nanti ketika Monthly Plan sudah dibuat,
+  // bagian ini akan mengambil plan dari master bulanan.
+  // =========================================================
+  const dailyPlan = useMemo(() => {
+    const recordsWithPlan = lineRecords.filter(
+      (record) => Number(record.planProduction) > 0
+    );
+
+    if (recordsWithPlan.length === 0) {
+      return 0;
+    }
+
+    return Number(
+      recordsWithPlan[recordsWithPlan.length - 1].planProduction
+    );
+  }, [lineRecords]);
+
+  // =========================================================
+  // CHART DATA
+  // =========================================================
+  const chartData = useMemo(() => {
+    return lineRecords.map((record) => ({
+      date: record.date,
+
+      // Total actual production:
+      // Normal Merah
+      // + OT Merah
+      // + Normal Putih
+      // + OT Putih
+      actual: actualProduction(record),
+
+      // Actual sales
+      sales: Number(record.actualSales) || 0,
+    }));
+  }, [lineRecords]);
+
+  // =========================================================
+  // DAILY STATUS SUMMARY
+  // =========================================================
+  const summary = useMemo(() => {
+    let green = 0;
+    let orange = 0;
+    let red = 0;
+
+    chartData.forEach((item) => {
+      const actual = Number(item.actual) || 0;
+      const sales = Number(item.sales) || 0;
+
+      // HIJAU
+      // Actual Production >= Daily Plan
+      if (dailyPlan > 0 && actual >= dailyPlan) {
+        green++;
+        return;
+      }
+
+      // ORANYE
+      // Actual Production < Plan
+      // tetapi masih >= Sales
+      if (actual >= sales) {
+        orange++;
+        return;
+      }
+
+      // MERAH
+      // Actual Production < Sales
+      red++;
     });
-    return c;
-  }, [lines, records]);
+
+    return {
+      green,
+      orange,
+      red,
+      total: chartData.length,
+    };
+  }, [chartData, dailyPlan]);
+
+  // =========================================================
+  // CURRENT MONTH SUMMARY
+  // =========================================================
+  const monthlySummary = useMemo(() => {
+    if (!chartData.length) {
+      return {
+        totalProduction: 0,
+        totalSales: 0,
+        averageProduction: 0,
+        averageSales: 0,
+      };
+    }
+
+    const totalProduction = chartData.reduce(
+      (sum, item) => sum + Number(item.actual || 0),
+      0
+    );
+
+    const totalSales = chartData.reduce(
+      (sum, item) => sum + Number(item.sales || 0),
+      0
+    );
+
+    return {
+      totalProduction,
+      totalSales,
+      averageProduction:
+        totalProduction / chartData.length,
+      averageSales:
+        totalSales / chartData.length,
+    };
+  }, [chartData]);
+
+  // =========================================================
+  // EMPTY LINE
+  // =========================================================
+  if (lines.length === 0) {
+    return <EmptyState />;
+  }
 
   return (
-    <div className="max-w-[1600px] mx-auto px-5 py-6">
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
-        <div>
-          <p className="text-ink-muted text-sm font-mono">
-            {now ? now.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "\u00A0"}
-          </p>
-          <h1 className="font-display font-bold text-3xl mt-1">Status Line — Realtime</h1>
-        </div>
-        <div className="flex gap-3 font-mono text-sm">
-          <Pill color="bg-signal-crit" label="Kritis" value={counts.crit} />
-          <Pill color="bg-signal-warn" label="Perlu evaluasi" value={counts.warn} />
-          <Pill color="bg-signal-ok" label="Aman" value={counts.ok} />
-        </div>
-      </div>
+    <main className="max-w-[1600px] mx-auto px-5 py-6">
 
-      <input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Cari line..."
-        className="mb-5 w-full max-w-xs bg-base-panel border border-base-border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-signal-plan/60"
-      />
+      {/* =====================================================
+          HEADER
+      ====================================================== */}
+      <header className="mb-5">
+        <div className="flex flex-wrap items-end justify-between gap-4">
 
-      {lines.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map((line) => (
-            <LineCard
-              key={line.id}
-              line={line}
-              records={records.filter((r) => r.lineId === line.id)}
+          <div>
+            <p className="text-ink-muted text-sm font-mono">
+              {now
+                ? now.toLocaleDateString("id-ID", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })
+                : ""}
+            </p>
+
+            <h1 className="font-display font-bold text-3xl mt-1">
+              Status Line — Production vs Sales
+            </h1>
+
+            <p className="text-sm text-ink-muted mt-1">
+              Monitoring pencapaian produksi terhadap daily plan
+              dan kebutuhan actual sales.
+            </p>
+          </div>
+
+          {/* STATUS COUNTER */}
+          <div className="flex flex-wrap gap-2 font-mono text-xs">
+
+            <SummaryPill
+              color="bg-signal-ok"
+              label="Target"
+              value={summary.green}
             />
-          ))}
+
+            <SummaryPill
+              color="bg-signal-warn"
+              label="Di bawah plan"
+              value={summary.orange}
+            />
+
+            <SummaryPill
+              color="bg-signal-crit"
+              label="Di bawah sales"
+              value={summary.red}
+            />
+
+          </div>
         </div>
+      </header>
+
+
+      {/* =====================================================
+          FILTER BAR
+      ====================================================== */}
+      <section className="bg-base-panel border border-base-border rounded-lg p-4 mb-5">
+
+        <div className="flex flex-wrap items-end gap-4">
+
+          {/* LINE */}
+          <label className="block min-w-[220px]">
+
+            <span className="block text-xs text-ink-muted mb-1">
+              Line
+            </span>
+
+            <select
+              value={selectedLine?.id || ""}
+              onChange={(event) =>
+                setSelectedLineId(event.target.value)
+              }
+              className="w-full bg-base-panelAlt border border-base-border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-signal-plan/60"
+            >
+
+              {lines.map((line) => (
+                <option
+                  key={line.id}
+                  value={line.id}
+                >
+                  {line.name}
+                </option>
+              ))}
+
+            </select>
+
+          </label>
+
+
+          {/* MONTH */}
+          <label className="block min-w-[190px]">
+
+            <span className="block text-xs text-ink-muted mb-1">
+              Periode
+            </span>
+
+            <select
+              value={selectedMonth}
+              onChange={(event) =>
+                setSelectedMonth(event.target.value)
+              }
+              className="w-full bg-base-panelAlt border border-base-border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-signal-plan/60"
+            >
+
+              {availableMonths.length === 0 ? (
+                <option value="">
+                  Belum ada data
+                </option>
+              ) : (
+                availableMonths.map((month) => (
+                  <option
+                    key={month}
+                    value={month}
+                  >
+                    {formatMonth(month)}
+                  </option>
+                ))
+              )}
+
+            </select>
+
+          </label>
+
+
+          {/* DAILY PLAN */}
+          <Metric
+            label="Daily Plan"
+            value={`${fmt(dailyPlan)} PCS`}
+          />
+
+          {/* DAYS */}
+          <Metric
+            label="Hari Data"
+            value={`${chartData.length} hari`}
+          />
+
+        </div>
+
+      </section>
+
+
+      {/* =====================================================
+          NO DATA
+      ====================================================== */}
+      {chartData.length === 0 ? (
+
+        <section className="border border-dashed border-base-border rounded-lg py-16 text-center">
+
+          <p className="text-ink-muted">
+            Belum ada data untuk{" "}
+            <strong>{selectedLine?.name}</strong>
+            {" "}pada periode{" "}
+            <strong>{formatMonth(selectedMonth)}</strong>.
+          </p>
+
+          <p className="text-xs text-ink-faint mt-2">
+            Masukkan data melalui menu Input Harian terlebih dahulu.
+          </p>
+
+        </section>
+
+      ) : (
+
+        <div className="space-y-5">
+
+          {/* =================================================
+              KPI SUMMARY
+          ================================================== */}
+          <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+
+            <KpiCard
+              title="Total Production"
+              value={`${fmt(monthlySummary.totalProduction)} PCS`}
+              subtitle="Akumulasi actual production"
+            />
+
+            <KpiCard
+              title="Total Sales"
+              value={`${fmt(monthlySummary.totalSales)} PCS`}
+              subtitle="Akumulasi actual sales"
+            />
+
+            <KpiCard
+              title="Avg Production"
+              value={`${fmt(monthlySummary.averageProduction)} PCS`}
+              subtitle="Rata-rata per hari"
+            />
+
+            <KpiCard
+              title="Avg Sales"
+              value={`${fmt(monthlySummary.averageSales)} PCS`}
+              subtitle="Rata-rata per hari"
+            />
+
+          </section>
+
+
+          {/* =================================================
+              PRODUCTION VS PLAN
+          ================================================== */}
+          <section className="bg-base-panel border border-base-border rounded-lg p-4">
+
+            <ProductionPlanChart
+              data={chartData}
+              plan={dailyPlan}
+            />
+
+          </section>
+
+
+          {/* =================================================
+              SALES VS PLAN
+          ================================================== */}
+          <section className="bg-base-panel border border-base-border rounded-lg p-4">
+
+            <SalesPlanChart
+              data={chartData}
+              plan={dailyPlan}
+            />
+
+          </section>
+
+
+          {/* =================================================
+              STATUS TABLE
+          ================================================== */}
+          <DailyStatusTable
+            data={chartData}
+            plan={dailyPlan}
+          />
+
+        </div>
+
       )}
-    </div>
+
+    </main>
   );
 }
 
-function Pill({ color, label, value }) {
+
+/* ============================================================
+   SUMMARY PILL
+============================================================ */
+
+function SummaryPill({
+  color,
+  label,
+  value,
+}) {
   return (
     <div className="flex items-center gap-2 bg-base-panel border border-base-border rounded px-3 py-1.5">
-      <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
-      <span className="text-ink-muted">{label}</span>
-      <span className="text-ink-primary font-semibold tabular">{value}</span>
+
+      <span
+        className={`w-2.5 h-2.5 rounded-full ${color}`}
+      />
+
+      <span className="text-ink-muted">
+        {label}
+      </span>
+
+      <span className="text-ink-primary font-semibold tabular">
+        {value}
+      </span>
+
     </div>
   );
 }
+
+
+/* ============================================================
+   METRIC
+============================================================ */
+
+function Metric({
+  label,
+  value,
+}) {
+  return (
+    <div className="ml-auto">
+
+      <p className="text-[11px] text-ink-faint uppercase tracking-wide">
+        {label}
+      </p>
+
+      <p className="font-mono font-semibold text-ink-primary mt-0.5">
+        {value}
+      </p>
+
+    </div>
+  );
+}
+
+
+/* ============================================================
+   KPI CARD
+============================================================ */
+
+function KpiCard({
+  title,
+  value,
+  subtitle,
+}) {
+  return (
+    <div className="bg-base-panel border border-base-border rounded-lg p-4">
+
+      <p className="text-xs text-ink-muted uppercase tracking-wide">
+        {title}
+      </p>
+
+      <p className="font-display font-bold text-2xl mt-2 text-ink-primary">
+        {value}
+      </p>
+
+      <p className="text-xs text-ink-faint mt-1">
+        {subtitle}
+      </p>
+
+    </div>
+  );
+}
+
+
+/* ============================================================
+   DAILY STATUS TABLE
+============================================================ */
+
+function DailyStatusTable({
+  data,
+  plan,
+}) {
+  return (
+    <section className="bg-base-panel border border-base-border rounded-lg overflow-hidden">
+
+      <div className="px-4 py-3 border-b border-base-border">
+
+        <h2 className="font-display font-bold text-lg">
+          Status Harian
+        </h2>
+
+        <p className="text-xs text-ink-muted mt-0.5">
+          Warna menunjukkan hubungan actual production,
+          daily plan, dan actual sales.
+        </p>
+
+      </div>
+
+
+      <div className="overflow-x-auto">
+
+        <table className="w-full text-sm">
+
+          <thead className="bg-base-panelAlt text-ink-muted text-xs uppercase tracking-wide">
+
+            <tr>
+
+              <th className="text-left px-4 py-3">
+                Tanggal
+              </th>
+
+              <th className="text-right px-4 py-3">
+                Plan
+              </th>
+
+              <th className="text-right px-4 py-3">
+                Actual
+              </th>
+
+              <th className="text-right px-4 py-3">
+                Sales
+              </th>
+
+              <th className="text-right px-4 py-3">
+                Gap Plan
+              </th>
+
+              <th className="text-right px-4 py-3">
+                Gap Sales
+              </th>
+
+              <th className="text-left px-4 py-3">
+                Status
+              </th>
+
+            </tr>
+
+          </thead>
+
+
+          <tbody>
+
+            {data.map((item) => {
+
+              const actual = Number(item.actual) || 0;
+              const sales = Number(item.sales) || 0;
+
+              const gapPlan = actual - plan;
+              const gapSales = actual - sales;
+
+              const status = getProductionStatus(
+                actual,
+                plan,
+                sales
+              );
+
+              return (
+
+                <tr
+                  key={item.date}
+                  className="border-t border-base-border hover:bg-base-panelAlt/50"
+                >
+
+                  <td className="px-4 py-3 font-mono">
+                    {formatDateLong(item.date)}
+                  </td>
+
+                  <td className="px-4 py-3 text-right font-mono">
+                    {fmt(plan)}
+                  </td>
+
+                  <td className="px-4 py-3 text-right font-mono font-semibold">
+                    {fmt(actual)}
+                  </td>
+
+                  <td className="px-4 py-3 text-right font-mono">
+                    {fmt(sales)}
+                  </td>
+
+                  <td
+                    className={`px-4 py-3 text-right font-mono ${
+                      gapPlan >= 0
+                        ? "text-signal-ok"
+                        : "text-signal-warn"
+                    }`}
+                  >
+                    {gapPlan > 0 ? "+" : ""}
+                    {fmt(gapPlan)}
+                  </td>
+
+                  <td
+                    className={`px-4 py-3 text-right font-mono ${
+                      gapSales >= 0
+                        ? "text-signal-ok"
+                        : "text-signal-crit"
+                    }`}
+                  >
+                    {gapSales > 0 ? "+" : ""}
+                    {fmt(gapSales)}
+                  </td>
+
+                  <td className="px-4 py-3">
+
+                    <span
+                      className={`inline-flex items-center gap-2 text-xs font-medium ${status.text}`}
+                    >
+
+                      <span
+                        className={`w-2 h-2 rounded-full ${status.dot}`}
+                      />
+
+                      {status.label}
+
+                    </span>
+
+                  </td>
+
+                </tr>
+
+              );
+
+            })}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </section>
+  );
+}
+
+
+/* ============================================================
+   PRODUCTION STATUS
+============================================================ */
+
+function getProductionStatus(
+  actual,
+  plan,
+  sales
+) {
+  if (plan > 0 && actual >= plan) {
+    return {
+      label: "Target tercapai",
+      text: "text-signal-ok",
+      dot: "bg-signal-ok",
+    };
+  }
+
+  if (actual >= sales) {
+    return {
+      label: "Di bawah plan",
+      text: "text-signal-warn",
+      dot: "bg-signal-warn",
+    };
+  }
+
+  return {
+    label: "Di bawah sales",
+    text: "text-signal-crit",
+    dot: "bg-signal-crit",
+  };
+}
+
+
+/* ============================================================
+   DATE FORMAT
+============================================================ */
+
+function formatMonth(month) {
+  if (!month) return "-";
+
+  const [year, monthNumber] = month.split("-");
+
+  return new Date(
+    Number(year),
+    Number(monthNumber) - 1,
+    1
+  ).toLocaleDateString("id-ID", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+
+function formatDateLong(date) {
+  if (!date) return "-";
+
+  const [year, month, day] = date.split("-");
+
+  return new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day)
+  ).toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+
+/* ============================================================
+   NUMBER FORMAT
+============================================================ */
+
+function fmt(value) {
+  return Math.round(
+    Number(value) || 0
+  ).toLocaleString("id-ID");
+}
+
+
+/* ============================================================
+   EMPTY STATE
+============================================================ */
 
 function EmptyState() {
   return (
-    <div className="border border-dashed border-base-border rounded-lg py-16 text-center">
-      <p className="text-ink-muted mb-3">Belum ada line yang terdaftar.</p>
-      <Link href="/lines" className="text-signal-plan font-medium hover:underline">
-        Tambah line pertama →
-      </Link>
-    </div>
+    <main className="max-w-[1600px] mx-auto px-5 py-16">
+
+      <div className="border border-dashed border-base-border rounded-lg py-16 text-center">
+
+        <p className="text-ink-muted mb-3">
+          Belum ada line yang terdaftar.
+        </p>
+
+        <a
+          href="/lines"
+          className="text-signal-plan font-medium hover:underline"
+        >
+          Tambah line pertama →
+        </a>
+
+      </div>
+
+    </main>
   );
 }
