@@ -12,6 +12,13 @@ import {
   ReferenceLine,
   Cell,
 } from "recharts";
+const COLORS = {
+  green: "#22c55e",
+  orange: "#f59e0b",
+  red: "#ef4444",
+  blue: "#3b82f6",
+  white: "#e5e7eb",
+};
 
 export default function SalesPlanChart({
   data = [],
@@ -176,20 +183,19 @@ export default function SalesPlanChart({
             ================================================== */}
 
             {plan > 0 && (
-              <ReferenceLine
+             <ReferenceLine
                 y={plan}
-                stroke="var(--signal-plan)"
+                stroke={COLORS.blue}
                 strokeWidth={2}
                 strokeDasharray="6 4"
                 label={{
                   value: `PLAN ${formatNumber(plan)}`,
                   position: "insideTopRight",
-                  fill: "var(--signal-plan)",
+                  fill: COLORS.blue,
                   fontSize: 11,
                   fontWeight: 700,
                 }}
               />
-            )}
 
 
             {/* =================================================
@@ -221,22 +227,18 @@ export default function SalesPlanChart({
               type="monotone"
               dataKey="production"
               name="Actual Production"
-              stroke="var(--signal-sales)"
+              stroke={COLORS.blue}
               strokeWidth={2}
               strokeDasharray="4 4"
               dot={{
                 r: 3,
+                fill: COLORS.blue,
               }}
               activeDot={{
                 r: 5,
+                fill: COLORS.blue,
               }}
             />
-
-          </ComposedChart>
-
-        </ResponsiveContainer>
-
-      </div>
 
 
       {/* =====================================================
@@ -456,15 +458,14 @@ function TooltipRow({
 
 function getStatusColor(status) {
   switch (status) {
-
     case "target":
-      return "var(--signal-ok)";
+      return COLORS.green;
 
     case "below-plan":
-      return "var(--signal-warn)";
+      return COLORS.orange;
 
     default:
-      return "var(--ink-muted)";
+      return COLORS.orange;
   }
 }
 
