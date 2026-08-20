@@ -12,6 +12,7 @@ import {
   ReferenceLine,
   Cell,
 } from "recharts";
+
 const COLORS = {
   green: "#22c55e",
   orange: "#f59e0b",
@@ -74,7 +75,6 @@ export default function SalesPlanChart({
           </p>
         </div>
 
-
         {/* STATUS LEGEND */}
         <div className="flex flex-wrap gap-3 text-xs font-mono">
 
@@ -100,7 +100,12 @@ export default function SalesPlanChart({
 
         <div className="inline-flex items-center gap-2 bg-base-panelAlt border border-base-border rounded px-3 py-2">
 
-          <span className="w-3 h-0.5 bg-signal-plan" />
+          <span
+            className="w-3 h-0.5"
+            style={{
+              backgroundColor: COLORS.blue,
+            }}
+          />
 
           <span className="text-xs text-ink-muted">
             Daily Production Plan
@@ -118,7 +123,7 @@ export default function SalesPlanChart({
       {/* =====================================================
           CHART
       ====================================================== */}
-      <div className="w-full h-[420px]">
+      <div className="w-full h-[360px]">
 
         <ResponsiveContainer
           width="100%"
@@ -128,7 +133,7 @@ export default function SalesPlanChart({
           <ComposedChart
             data={chartData}
             margin={{
-              top: 20,
+              top: 25,
               right: 30,
               left: 10,
               bottom: 10,
@@ -137,11 +142,9 @@ export default function SalesPlanChart({
 
             <CartesianGrid
               strokeDasharray="3 3"
-              stroke="currentColor"
-              className="text-base-border"
+              stroke="#334155"
               vertical={false}
             />
-
 
             {/* X AXIS */}
             <XAxis
@@ -149,17 +152,18 @@ export default function SalesPlanChart({
               tickFormatter={formatDate}
               tick={{
                 fontSize: 11,
+                fill: "#94a3b8",
               }}
               tickLine={false}
               axisLine={false}
               minTickGap={25}
             />
 
-
             {/* Y AXIS */}
             <YAxis
               tick={{
                 fontSize: 11,
+                fill: "#94a3b8",
               }}
               tickLine={false}
               axisLine={false}
@@ -167,7 +171,6 @@ export default function SalesPlanChart({
               width={65}
               domain={[0, "auto"]}
             />
-
 
             {/* TOOLTIP */}
             <Tooltip
@@ -179,11 +182,11 @@ export default function SalesPlanChart({
 
 
             {/* =================================================
-                PLAN LINE
+                DAILY PRODUCTION PLAN
             ================================================== */}
 
             {plan > 0 && (
-             <ReferenceLine
+              <ReferenceLine
                 y={plan}
                 stroke={COLORS.blue}
                 strokeWidth={2}
@@ -196,6 +199,7 @@ export default function SalesPlanChart({
                   fontWeight: 700,
                 }}
               />
+            )}
 
 
             {/* =================================================
@@ -220,7 +224,7 @@ export default function SalesPlanChart({
 
 
             {/* =================================================
-                PRODUCTION REFERENCE
+                ACTUAL PRODUCTION
             ================================================== */}
 
             <Line
@@ -233,12 +237,20 @@ export default function SalesPlanChart({
               dot={{
                 r: 3,
                 fill: COLORS.blue,
+                stroke: COLORS.blue,
               }}
               activeDot={{
                 r: 5,
                 fill: COLORS.blue,
+                stroke: COLORS.blue,
               }}
             />
+
+          </ComposedChart>
+
+        </ResponsiveContainer>
+
+      </div>
 
 
       {/* =====================================================
@@ -356,7 +368,6 @@ function SalesTooltip({
         {formatDateLong(label)}
       </p>
 
-
       <div className="space-y-2 text-xs">
 
         <TooltipRow
@@ -374,7 +385,6 @@ function SalesTooltip({
           value={`${formatNumber(production)} PCS`}
         />
 
-
         <div className="border-t border-base-border pt-2 mt-2">
 
           <TooltipRow
@@ -386,7 +396,6 @@ function SalesTooltip({
                 : "text-signal-warn"
             }
           />
-
 
           <TooltipRow
             label="Production vs Sales"
@@ -400,16 +409,19 @@ function SalesTooltip({
 
         </div>
 
-
         {/* STATUS */}
         <div className="pt-2">
 
           <span
-            className={`inline-flex items-center gap-2 font-semibold ${getStatusText(point.status)}`}
+            className={`inline-flex items-center gap-2 font-semibold ${getStatusText(
+              point.status
+            )}`}
           >
 
             <span
-              className={`w-2 h-2 rounded-full ${getStatusDot(point.status)}`}
+              className={`w-2 h-2 rounded-full ${getStatusDot(
+                point.status
+              )}`}
             />
 
             {getStatusLabel(point.status)}
@@ -458,6 +470,7 @@ function TooltipRow({
 
 function getStatusColor(status) {
   switch (status) {
+
     case "target":
       return COLORS.green;
 
