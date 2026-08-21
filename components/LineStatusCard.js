@@ -4,10 +4,10 @@ const COLORS = {
   green: "#35C979",
   orange: "#F2B033",
   red: "#EF5757",
+  gray: "#66717F",
   blue: "#4C8DFF",
   text: "#E7ECF2",
   muted: "#8B96A5",
-  faint: "#5B6572",
   panel: "#141A21",
   border: "#29323C",
 };
@@ -17,90 +17,67 @@ export default function LineStatusCard({
   production = 0,
   plan = 0,
   sales = 0,
+  hasData = true,
 }) {
   const actual = Number(production) || 0;
   const dailyPlan = Number(plan) || 0;
   const actualSales = Number(sales) || 0;
 
+  /*
+   * STATUS
+   *
+   * NO DATA       : belum ada data
+   * TARGET        : actual >= plan
+   * BELOW PLAN    : actual < plan tetapi actual >= sales
+   * BELOW SALES   : actual < sales
+   */
+
   const status = getStatus(
     actual,
     dailyPlan,
-    actualSales
+    actualSales,
+    hasData
   );
-
-  const achievement =
-    dailyPlan > 0
-      ? Math.round((actual / dailyPlan) * 100)
-      : 0;
 
   const planPercent =
     dailyPlan > 0
       ? Math.min((actual / dailyPlan) * 100, 100)
       : 0;
 
-  const gapPlan = actual - dailyPlan;
-  const gapSales = actual - actualSales;
-
   return (
     <article
-      className="
-        relative
-        overflow-hidden
-        rounded-lg
-        border
-        px-3
-        py-2.5
-        flex
-        flex-col
-        min-w-0
-      "
+      className="relative overflow-hidden rounded-lg border p-3"
       style={{
         backgroundColor: COLORS.panel,
         borderColor: status.color,
-        borderLeftWidth: "3px",
+        borderLeftWidth: "4px",
       }}
     >
 
-      {/* =====================================================
-          HEADER
-      ====================================================== */}
+      {/* HEADER */}
 
-      <div className="flex items-center justify-between gap-2 min-w-0">
+      <div className="flex items-center justify-between gap-2">
 
         <h2
-          className="
-            font-display
-            font-bold
-            text-sm
-            xl:text-base
-            truncate
-            min-w-0
-          "
+          className="font-display font-bold text-base truncate"
           style={{ color: COLORS.text }}
         >
           {line?.name || "LINE"}
         </h2>
 
         <div
-          className="
-            flex
-            items-center
-            gap-1
-            text-[8px]
-            xl:text-[9px]
-            font-mono
-            font-bold
-            uppercase
-            shrink-0
-          "
+          className="flex items-center gap-1 text-[9px] font-mono font-bold uppercase shrink-0"
           style={{ color: status.color }}
         >
 
           <span
-            className="w-2 h-2 rounded-full shrink-0"
+            className="w-2 h-2 rounded-full"
             style={{
               backgroundColor: status.color,
-              boxShadow: `0 0 6px ${status.color}`,
+              boxShadow:
+                status.glow
+                  ? `0 0 7px ${status.color}`
+                  : "none",
             }}
           />
 
@@ -111,87 +88,72 @@ export default function LineStatusCard({
       </div>
 
 
-      {/* =====================================================
-          ACTUAL + ACHIEVEMENT
-      ====================================================== */}
+      {/* ACTUAL PRODUCTION */}
 
-      <div className="flex items-end justify-between gap-2 mt-3">
+      <div className="mt-3">
 
-        <div>
+        <div className="flex items-end justify-between gap-2">
 
-          <p
-            className="
-              text-[8px]
-              xl:text-[9px]
-              uppercase
-              tracking-wide
-            "
-            style={{ color: COLORS.muted }}
-          >
-            Actual Production
-          </p>
+          <div>
 
-          <p
-            className="
-              font-display
-              font-bold
-              text-2xl
-              xl:text-3xl
-              leading-none
-              mt-0.5
-            "
-            style={{ color: COLORS.text }}
-          >
-            {fmt(actual)}
-
-            <span
-              className="
-                text-[9px]
-                xl:text-[10px]
-                font-mono
-                ml-1
-              "
+            <p
+              className="text-[9px] uppercase tracking-wide"
               style={{ color: COLORS.muted }}
             >
-              PCS
-            </span>
+              Actual Production
+            </p>
 
-          </p>
+            <p
+              className="font-display font-bold text-2xl leading-none mt-1"
+              style={{ color: COLORS.text }}
+            >
+              {fmt(actual)}
 
-        </div>
+              <span
+                className="text-[10px] font-mono ml-1"
+                style={{ color: COLORS.muted }}
+              >
+                PCS
+              </span>
+
+            </p>
+
+          </div>
 
 
-        <div className="text-right">
+          {/* ACHIEVEMENT */}
 
-          <p
-            className="text-[8px] xl:text-[9px]"
-            style={{ color: COLORS.muted }}
-          >
-            Achievement
-          </p>
+          <div className="text-right">
 
-          <p
-            className="
-              font-mono
-              font-bold
-              text-sm
-              xl:text-base
-            "
-            style={{ color: status.color }}
-          >
-            {achievement}%
-          </p>
+            <p
+              className="text-[9px]"
+              style={{ color: COLORS.muted }}
+            >
+              Achievement
+            </p>
+
+            <p
+              className="font-mono font-bold text-sm"
+              style={{ color: status.color }}
+            >
+              {dailyPlan > 0
+                ? Math.round(
+                    (actual / dailyPlan) * 100
+                  )
+                : 0}
+              %
+            </p>
+
+          </div>
 
         </div>
 
       </div>
 
 
-      {/* =====================================================
-          PROGRESS
-      ====================================================== */}
+      {/* PROGRESS BAR */}
 
-      <div className="mt-2">
+      <div className="mt-3">
 
         <div
           className="h-1.5 rounded-full overflow-hidden"
@@ -201,7 +163,7 @@ export default function LineStatusCard({
         >
 
           <div
-            className="h-full rounded-full"
+            className="h-full rounded-full transition-all duration-500"
             style={{
               width: `${planPercent}%`,
               backgroundColor: status.color,
@@ -213,11 +175,9 @@ export default function LineStatusCard({
       </div>
 
 
-      {/* =====================================================
-          PLAN / SALES
-      ====================================================== */}
+      {/* PLAN / SALES */}
 
-      <div className="grid grid-cols-2 gap-2 mt-2.5">
+      <div className="grid grid-cols-2 gap-3 mt-3">
 
         <Metric
           label="Plan"
@@ -234,38 +194,45 @@ export default function LineStatusCard({
       </div>
 
 
-      {/* =====================================================
-          GAP
-      ====================================================== */}
+      {/* GAP */}
 
       <div
-        className="
-          grid
-          grid-cols-2
-          gap-2
-          mt-2.5
-          pt-2
-          border-t
-        "
+        className="mt-3 pt-2 border-t"
         style={{
           borderColor: COLORS.border,
         }}
       >
 
-        <GapMetric
-          label="Gap Plan"
-          value={gapPlan}
-          positiveColor={COLORS.green}
-          negativeColor={COLORS.orange}
-        />
+        <div className="grid grid-cols-2 gap-3">
 
-        <GapMetric
-          label="Gap Sales"
-          value={gapSales}
-          positiveColor={COLORS.green}
-          negativeColor={COLORS.red}
-        />
+          <GapMetric
+            label="Gap Plan"
+            value={actual - dailyPlan}
+            positiveColor={COLORS.green}
+            negativeColor={COLORS.orange}
+            hasData={hasData}
+          />
 
+          <GapMetric
+            label="Gap Sales"
+            value={actual - actualSales}
+            positiveColor={COLORS.green}
+            negativeColor={COLORS.red}
+            hasData={hasData}
+          />
+
+        </div>
+
+      </div>
+
+
+      {/* STATUS MESSAGE */}
+
+      <div
+        className="mt-2 text-[9px] font-medium truncate"
+        style={{ color: status.color }}
+      >
+        {status.message}
       </div>
 
     </article>
@@ -283,35 +250,23 @@ function Metric({
   color,
 }) {
   return (
-    <div className="min-w-0">
+    <div>
 
       <p
-        className="
-          text-[8px]
-          xl:text-[9px]
-          uppercase
-          tracking-wide
-        "
+        className="text-[9px] uppercase tracking-wide"
         style={{ color: COLORS.muted }}
       >
         {label}
       </p>
 
       <p
-        className="
-          font-mono
-          font-bold
-          text-xs
-          xl:text-sm
-          mt-0.5
-          truncate
-        "
+        className="font-mono font-bold text-xs mt-0.5"
         style={{ color }}
       >
         {fmt(value)}
 
         <span
-          className="text-[8px] font-normal ml-0.5"
+          className="text-[8px] font-normal ml-1"
           style={{ color: COLORS.muted }}
         >
           PCS
@@ -333,42 +288,34 @@ function GapMetric({
   value,
   positiveColor,
   negativeColor,
+  hasData,
 }) {
   const number = Number(value) || 0;
 
   return (
-    <div className="min-w-0">
+    <div>
 
       <p
-        className="
-          text-[8px]
-          xl:text-[9px]
-          uppercase
-          tracking-wide
-        "
+        className="text-[9px] uppercase tracking-wide"
         style={{ color: COLORS.muted }}
       >
         {label}
       </p>
 
       <p
-        className="
-          font-mono
-          font-bold
-          text-xs
-          xl:text-sm
-          mt-0.5
-          truncate
-        "
+        className="font-mono font-bold text-xs mt-0.5"
         style={{
-          color:
-            number >= 0
+          color: !hasData
+            ? COLORS.gray
+            : number >= 0
               ? positiveColor
               : negativeColor,
         }}
       >
-        {number > 0 ? "+" : ""}
-        {fmt(number)}
+        {!hasData
+          ? "-"
+          : `${number > 0 ? "+" : ""}${fmt(number)}`}
+
       </p>
 
     </div>
@@ -383,29 +330,49 @@ function GapMetric({
 function getStatus(
   actual,
   plan,
-  sales
+  sales,
+  hasData
 ) {
 
-  // HIJAU
+  // NO DATA
+  if (!hasData) {
+    return {
+      color: COLORS.gray,
+      shortLabel: "NO DATA",
+      message: "Belum ada data produksi",
+      glow: false,
+    };
+  }
+
+
+  // TARGET
   if (plan > 0 && actual >= plan) {
     return {
       color: COLORS.green,
       shortLabel: "TARGET",
+      message: "Production target tercapai",
+      glow: true,
     };
   }
 
-  // ORANYE
+
+  // BELOW PLAN
   if (actual >= sales) {
     return {
       color: COLORS.orange,
       shortLabel: "BELOW PLAN",
+      message: "Production masih di bawah daily plan",
+      glow: true,
     };
   }
 
-  // MERAH
+
+  // BELOW SALES
   return {
     color: COLORS.red,
     shortLabel: "BELOW SALES",
+    message: "Production di bawah kebutuhan sales",
+    glow: true,
   };
 }
 
