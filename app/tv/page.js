@@ -130,7 +130,7 @@ export default function TVPage() {
   }
 
   return (
-    <main className="min-h-screen bg-base-bg px-5 py-4">
+    <main className="h-screen overflow-hidden bg-base-bg px-5 py-4 flex flex-col">
 
       {/* =====================================================
           HEADER
@@ -226,16 +226,18 @@ export default function TVPage() {
           LINE GRID
       ====================================================== */}
 
-      <section
-        className="
-          grid
-          grid-cols-2
-          md:grid-cols-3
-          lg:grid-cols-4
-          xl:grid-cols-5
-          gap-3
-        "
-      >
+             <section
+          className="
+            flex-1
+            min-h-0
+            grid
+            grid-cols-2
+            md:grid-cols-3
+            lg:grid-cols-4
+            xl:grid-cols-5
+            gap-3
+          "
+        >
 
         {lineData.map((item) => (
 
