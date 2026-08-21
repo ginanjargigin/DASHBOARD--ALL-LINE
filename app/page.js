@@ -5,6 +5,7 @@ import { getLines, getRecords } from "@/lib/storage";
 import { actualProduction } from "@/lib/calc";
 import ProductionPlanChart from "@/components/ProductionPlanChart";
 import SalesPlanChart from "@/components/SalesPlanChart";
+import LineKpiCards from "@/components/LineKpiCards";
 
 export default function DashboardPage() {
   const [lines, setLines] = useState([]);
@@ -212,6 +213,15 @@ export default function DashboardPage() {
         totalSales / chartData.length,
     };
   }, [chartData]);
+    // =========================================================
+  // LATEST DAILY RECORD
+  // Dipakai untuk KPI kondisi hari/data terakhir
+  // =========================================================
+  const latestRecord = useMemo(() => {
+    if (!lineRecords.length) return null;
+
+    return lineRecords[lineRecords.length - 1];
+  }, [lineRecords]);
 
   // =========================================================
   // EMPTY LINE
@@ -389,37 +399,36 @@ export default function DashboardPage() {
 
         <div className="space-y-5">
 
-          {/* =================================================
-              KPI SUMMARY
+         {/* =================================================
+              CURRENT LINE KPI
           ================================================== */}
-          <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <LineKpiCards
+            production={
+              latestRecord
+                ? actualProduction(latestRecord)
+                : 0
+            }
 
-            <KpiCard
-              title="Total Production"
-              value={`${fmt(monthlySummary.totalProduction)} PCS`}
-              subtitle="Akumulasi actual production"
-            />
+            plan={dailyPlan}
 
-            <KpiCard
-              title="Total Sales"
-              value={`${fmt(monthlySummary.totalSales)} PCS`}
-              subtitle="Akumulasi actual sales"
-            />
+            sales={
+              latestRecord
+                ? Number(latestRecord.actualSales) || 0
+                : 0
+            }
 
-            <KpiCard
-              title="Avg Production"
-              value={`${fmt(monthlySummary.averageProduction)} PCS`}
-              subtitle="Rata-rata per hari"
-            />
+            otActual={
+              latestRecord
+                ? Number(latestRecord.actualOT) || 0
+                : 0
+            }
 
-            <KpiCard
-              title="Avg Sales"
-              value={`${fmt(monthlySummary.averageSales)} PCS`}
-              subtitle="Rata-rata per hari"
-            />
-
-          </section>
-
+            otPlan={
+              latestRecord
+                ? Number(latestRecord.planOT) || 0
+                : 0
+            }
+          />
 
           {/* =================================================
               PRODUCTION VS PLAN
