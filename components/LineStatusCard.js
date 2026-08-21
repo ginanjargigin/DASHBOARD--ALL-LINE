@@ -43,11 +43,21 @@ export default function LineStatusCard({
 
   return (
     <article
-      className="relative overflow-hidden rounded-lg border px-3 py-3"
+      className="
+        relative
+        overflow-hidden
+        rounded-lg
+        border
+        px-3
+        py-2.5
+        flex
+        flex-col
+        min-w-0
+      "
       style={{
         backgroundColor: COLORS.panel,
         borderColor: status.color,
-        borderLeftWidth: "4px",
+        borderLeftWidth: "3px",
       }}
     >
 
@@ -55,83 +65,118 @@ export default function LineStatusCard({
           HEADER
       ====================================================== */}
 
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 min-w-0">
 
         <h2
-          className="font-display font-bold text-base truncate"
+          className="
+            font-display
+            font-bold
+            text-sm
+            xl:text-base
+            truncate
+            min-w-0
+          "
           style={{ color: COLORS.text }}
-          title={line?.name || "LINE"}
         >
           {line?.name || "LINE"}
         </h2>
 
         <div
-          className="flex items-center gap-1.5 shrink-0 font-mono font-bold text-[9px]"
+          className="
+            flex
+            items-center
+            gap-1
+            text-[8px]
+            xl:text-[9px]
+            font-mono
+            font-bold
+            uppercase
+            shrink-0
+          "
           style={{ color: status.color }}
         >
+
           <span
-            className="w-2 h-2 rounded-full"
+            className="w-2 h-2 rounded-full shrink-0"
             style={{
               backgroundColor: status.color,
-              boxShadow: `0 0 7px ${status.color}`,
+              boxShadow: `0 0 6px ${status.color}`,
             }}
           />
 
           {status.shortLabel}
+
         </div>
 
       </div>
 
 
       {/* =====================================================
-          ACTUAL PRODUCTION
+          ACTUAL + ACHIEVEMENT
       ====================================================== */}
 
-      <div className="mt-3 flex items-end justify-between">
+      <div className="flex items-end justify-between gap-2 mt-3">
 
         <div>
 
           <p
-            className="text-[9px] uppercase tracking-wide"
+            className="
+              text-[8px]
+              xl:text-[9px]
+              uppercase
+              tracking-wide
+            "
             style={{ color: COLORS.muted }}
           >
             Actual Production
           </p>
 
-          <div className="flex items-baseline gap-1 mt-0.5">
+          <p
+            className="
+              font-display
+              font-bold
+              text-2xl
+              xl:text-3xl
+              leading-none
+              mt-0.5
+            "
+            style={{ color: COLORS.text }}
+          >
+            {fmt(actual)}
 
             <span
-              className="font-display font-bold text-2xl leading-none"
-              style={{ color: COLORS.text }}
-            >
-              {fmt(actual)}
-            </span>
-
-            <span
-              className="font-mono text-[9px]"
+              className="
+                text-[9px]
+                xl:text-[10px]
+                font-mono
+                ml-1
+              "
               style={{ color: COLORS.muted }}
             >
               PCS
             </span>
 
-          </div>
+          </p>
 
         </div>
 
 
-        {/* ACHIEVEMENT */}
-
         <div className="text-right">
 
           <p
-            className="text-[9px]"
+            className="text-[8px] xl:text-[9px]"
             style={{ color: COLORS.muted }}
           >
             Achievement
           </p>
 
           <p
-            className="font-mono font-bold text-sm"
+            className="
+              font-mono
+              font-bold
+              text-sm
+              xl:text-base
+            "
             style={{ color: status.color }}
           >
             {achievement}%
@@ -156,7 +201,7 @@ export default function LineStatusCard({
         >
 
           <div
-            className="h-full rounded-full transition-all duration-500"
+            className="h-full rounded-full"
             style={{
               width: `${planPercent}%`,
               backgroundColor: status.color,
@@ -172,16 +217,16 @@ export default function LineStatusCard({
           PLAN / SALES
       ====================================================== */}
 
-      <div className="grid grid-cols-2 gap-2 mt-3">
+      <div className="grid grid-cols-2 gap-2 mt-2.5">
 
-        <CompactMetric
-          label="PLAN"
+        <Metric
+          label="Plan"
           value={dailyPlan}
           color={COLORS.blue}
         />
 
-        <CompactMetric
-          label="SALES"
+        <Metric
+          label="Sales"
           value={actualSales}
           color={COLORS.text}
         />
@@ -194,35 +239,32 @@ export default function LineStatusCard({
       ====================================================== */}
 
       <div
-        className="mt-3 pt-2 border-t"
+        className="
+          grid
+          grid-cols-2
+          gap-2
+          mt-2.5
+          pt-2
+          border-t
+        "
         style={{
           borderColor: COLORS.border,
         }}
       >
 
-        <div className="grid grid-cols-2 gap-2">
+        <GapMetric
+          label="Gap Plan"
+          value={gapPlan}
+          positiveColor={COLORS.green}
+          negativeColor={COLORS.orange}
+        />
 
-          <GapMetric
-            label="GAP PLAN"
-            value={gapPlan}
-            color={
-              gapPlan >= 0
-                ? COLORS.green
-                : COLORS.orange
-            }
-          />
-
-          <GapMetric
-            label="GAP SALES"
-            value={gapSales}
-            color={
-              gapSales >= 0
-                ? COLORS.green
-                : COLORS.red
-            }
-          />
-
-        </div>
+        <GapMetric
+          label="Gap Sales"
+          value={gapSales}
+          positiveColor={COLORS.green}
+          negativeColor={COLORS.red}
+        />
 
       </div>
 
@@ -232,32 +274,44 @@ export default function LineStatusCard({
 
 
 /* ============================================================
-   COMPACT METRIC
+   METRIC
 ============================================================ */
 
-function CompactMetric({
+function Metric({
   label,
   value,
   color,
 }) {
   return (
-    <div>
+    <div className="min-w-0">
 
       <p
-        className="text-[8px] uppercase tracking-wide"
+        className="
+          text-[8px]
+          xl:text-[9px]
+          uppercase
+          tracking-wide
+        "
         style={{ color: COLORS.muted }}
       >
         {label}
       </p>
 
       <p
-        className="font-mono font-bold text-xs mt-0.5"
+        className="
+          font-mono
+          font-bold
+          text-xs
+          xl:text-sm
+          mt-0.5
+          truncate
+        "
         style={{ color }}
       >
         {fmt(value)}
 
         <span
-          className="font-normal text-[8px] ml-0.5"
+          className="text-[8px] font-normal ml-0.5"
           style={{ color: COLORS.muted }}
         >
           PCS
@@ -277,25 +331,44 @@ function CompactMetric({
 function GapMetric({
   label,
   value,
-  color,
+  positiveColor,
+  negativeColor,
 }) {
+  const number = Number(value) || 0;
+
   return (
-    <div>
+    <div className="min-w-0">
 
       <p
-        className="text-[8px] uppercase tracking-wide"
+        className="
+          text-[8px]
+          xl:text-[9px]
+          uppercase
+          tracking-wide
+        "
         style={{ color: COLORS.muted }}
       >
         {label}
       </p>
 
       <p
-        className="font-mono font-bold text-xs mt-0.5"
-        style={{ color }}
+        className="
+          font-mono
+          font-bold
+          text-xs
+          xl:text-sm
+          mt-0.5
+          truncate
+        "
+        style={{
+          color:
+            number >= 0
+              ? positiveColor
+              : negativeColor,
+        }}
       >
-        {value > 0 ? "+" : ""}
-        {fmt(value)}
-
+        {number > 0 ? "+" : ""}
+        {fmt(number)}
       </p>
 
     </div>
@@ -321,18 +394,18 @@ function getStatus(
     };
   }
 
-  // MERAH
-  if (actual < sales) {
+  // ORANYE
+  if (actual >= sales) {
     return {
-      color: COLORS.red,
-      shortLabel: "BELOW SALES",
+      color: COLORS.orange,
+      shortLabel: "BELOW PLAN",
     };
   }
 
-  // ORANYE
+  // MERAH
   return {
-    color: COLORS.orange,
-    shortLabel: "BELOW PLAN",
+    color: COLORS.red,
+    shortLabel: "BELOW SALES",
   };
 }
 
