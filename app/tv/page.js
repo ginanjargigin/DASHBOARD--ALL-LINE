@@ -89,6 +89,7 @@ export default function TVPage() {
     let green = 0;
     let orange = 0;
     let red = 0;
+    let noData = 0;
 
     lineData.forEach((item) => {
       const actual = Number(item.production) || 0;
@@ -96,6 +97,7 @@ export default function TVPage() {
       const sales = Number(item.sales) || 0;
 
       if (!item.hasData) {
+        noData++;
         return;
       }
 
@@ -119,9 +121,11 @@ export default function TVPage() {
       green,
       orange,
       red,
+      noData,
       total: lineData.length,
     };
   }, [lineData]);
+  
 
   // =========================================================
   // EMPTY STATE
@@ -221,7 +225,7 @@ export default function TVPage() {
         <div className="flex items-center gap-6 shrink-0">
 
           {/* SUMMARY */}
-
+         
           <div
             className="
               flex
@@ -249,6 +253,11 @@ export default function TVPage() {
               color="bg-signal-crit"
               value={summary.red}
               label="BELOW SALES"
+            />
+           <StatusSummary
+              color="bg-base-border"
+              value={summary.noData}
+              label="NO DATA"
             />
 
           </div>
