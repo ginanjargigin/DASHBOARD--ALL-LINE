@@ -337,48 +337,39 @@ export default function TVPage() {
           FOOTER
       ====================================================== */}
 
-      <footer
+        <footer
+      className="
+        flex
+        items-center
+        justify-between
+        mt-3
+        pt-2
+        border-t
+        border-base-border
+      "
+    >
+      <p
         className="
-          absolute
-          left-5
-          right-5
-          bottom-2
-          flex
-          items-center
-          justify-between
-          pt-2
-          border-t
-          border-base-border
+          text-[9px]
+          xl:text-[10px]
+          text-ink-faint
+          font-mono
         "
       >
-
-        <p
-          className="
-            text-[9px]
-            xl:text-[10px]
-            text-ink-faint
-            font-mono
-          "
-        >
-          {summary.total} LINE AKTIF
-        </p>
-
-        <p
-          className="
-            text-[9px]
-            xl:text-[10px]
-            text-ink-faint
-            font-mono
-          "
-        >
-          AUTO REFRESH 30s
-        </p>
-
-      </footer>
-
-    </main>
-  );
-}
+        {summary.total} LINE AKTIF
+      </p>
+    
+      <p
+        className="
+          text-[9px]
+          xl:text-[10px]
+          text-ink-faint
+          font-mono
+        "
+      >
+        AUTO REFRESH 30s
+      </p>
+    </footer>
 
 
 /* ============================================================
