@@ -458,27 +458,31 @@ export default function DashboardPage() {
           </section>
 
 
+              {/* =================================================
+              OVERTIME ANALYSIS
+          ================================================== */}
+
+          <OvertimeAnalysis
+            data={chartData}
+          />
+
+
           {/* =================================================
               STATUS TABLE
           ================================================== */}
-        <ProductionPlanChart
-          data={chartData}
-          plan={dailyPlan}
-        />
-        
-        <SalesPlanChart
-          data={chartData}
-          plan={dailyPlan}
-        />
-        
-        <OvertimeAnalysis
-          data={chartData}
-        />
-        
-        <DailyStatusTable
-          data={chartData}
-          plan={dailyPlan}
-        />
+
+          <DailyStatusTable
+            data={chartData}
+            plan={dailyPlan}
+          />
+
+        </div>
+
+      )}
+
+    </main>
+  );
+}
 
 /* ============================================================
    SUMMARY PILL
