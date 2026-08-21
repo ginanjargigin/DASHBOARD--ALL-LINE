@@ -1,39 +1,57 @@
 "use client";
 
-import {
-  ResponsiveContainer,
-  ComposedChart,
-  Bar,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ReferenceLine,
-  Cell,
-} from "recharts";
-
 const COLORS = {
-  green: "#22c55e",
-  orange: "#f59e0b",
-  red: "#ef4444",
-  blue: "#3b82f6",
-  white: "#e5e7eb",
+  green: "#35C979",
+  orange: "#F2B033",
+  red: "#EF5757",
+  blue: "#4C8DFF",
+  text: "#E7ECF2",
+  muted: "#8B96A5",
+  faint: "#5B6572",
+  grid: "#29323C",
+  panel: "#141A21",
 };
 
 export default function SalesPlanChart({
   data = [],
   plan = 0,
 }) {
+  if (!data.length) {
+    return (
+      <EmptyChart message="Belum ada data sales untuk periode ini." />
+    );
+  }
+
+  const width = 1000;
+  const height = 390;
+
+  const pad = {
+    top: 28,
+    right: 28,
+    bottom: 62,
+    left: 70,
+  };
+
+  const innerW = width - pad.left - pad.right;
+  const innerH = height - pad.top - pad.bottom;
+
+  /*
+   * =========================================================
+   * DATA
+   * =========================================================
+   */
+
   const chartData = data.map((item) => {
     const sales = Number(item.sales) || 0;
     const production = Number(item.actual) || 0;
     const dailyPlan = Number(plan) || 0;
 
-    let status = "below-plan";
+    let status = "red";
 
-    if (dailyPlan > 0 && sales >= dailyPlan) {
-      status = "target";
+    if (production >= dailyPlan && dailyPlan > 0) {
+      status = "green";
+    } else if (production >= sales) {
+      status = "orange";
     }
 
     return {
@@ -42,19 +60,67 @@ export default function SalesPlanChart({
       production,
       plan: dailyPlan,
       status,
-      gap: sales - dailyPlan,
     };
   });
 
-  if (chartData.length === 0) {
-    return (
-      <div className="py-16 text-center">
-        <p className="text-sm text-ink-muted">
-          Belum ada data sales untuk ditampilkan.
-        </p>
-      </div>
-    );
-  }
+  /*
+   * =========================================================
+   * SCALE
+   * =========================================================
+   */
+
+  const maxValue = Math.max(
+    plan || 0,
+    ...chartData.map((d) => d.production),
+    ...chartData.map((d) => d.sales),
+    1
+  );
+
+  const yMax = niceMax(maxValue * 1.12);
+
+  const xStep =
+    chartData.length > 1
+      ? innerW / chartData.length
+      : innerW;
+
+  const barWidth = Math.min(
+    42,
+    Math.max(18, xStep * 0.42)
+  );
+
+  const y = (value) =>
+    pad.top +
+    innerH -
+    (value / yMax) * innerH;
+
+  const x = (index) =>
+    pad.left +
+    xStep * index +
+    xStep / 2;
+
+  const baseline = pad.top + innerH;
+
+  const planY = y(plan || 0);
+
+  const gridValues = makeTicks(yMax, 5);
+
+  /*
+   * =========================================================
+   * STATUS SUMMARY
+   * =========================================================
+   */
+
+  const greenCount = chartData.filter(
+    (item) => item.status === "green"
+  ).length;
+
+  const orangeCount = chartData.filter(
+    (item) => item.status === "orange"
+  ).length;
+
+  const redCount = chartData.filter(
+    (item) => item.status === "red"
+  ).length;
 
   return (
     <div className="w-full">
@@ -62,30 +128,41 @@ export default function SalesPlanChart({
       {/* =====================================================
           HEADER
       ====================================================== */}
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-3">
 
         <div>
-          <h2 className="font-display font-bold text-xl text-ink-primary">
+          <h2 className="font-display font-bold text-xl">
             Actual Sales vs Production Plan
           </h2>
 
-          <p className="text-xs text-ink-muted mt-1">
-            Perbandingan kebutuhan actual sales terhadap
-            daily production plan.
+          <p className="text-xs text-ink-muted mt-0.5">
+            Perbandingan actual sales terhadap kebutuhan
+            produksi dan daily production plan.
           </p>
         </div>
 
-        {/* STATUS LEGEND */}
         <div className="flex flex-wrap gap-3 text-xs font-mono">
 
-          <StatusLegend
-            color="bg-signal-ok"
-            label="Sales ≥ Plan"
+          <Legend
+            color={COLORS.blue}
+            label={`Plan ${fmt(plan)} PCS`}
+            line
           />
 
-          <StatusLegend
-            color="bg-signal-warn"
-            label="Sales < Plan"
+          <Legend
+            color={COLORS.green}
+            label="Target"
+          />
+
+          <Legend
+            color={COLORS.orange}
+            label="Di bawah plan"
+          />
+
+          <Legend
+            color={COLORS.red}
+            label="Di bawah sales"
           />
 
         </div>
@@ -96,14 +173,15 @@ export default function SalesPlanChart({
       {/* =====================================================
           PLAN INFO
       ====================================================== */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+
+      <div className="mb-3">
 
         <div className="inline-flex items-center gap-2 bg-base-panelAlt border border-base-border rounded px-3 py-2">
 
           <span
-            className="w-3 h-0.5"
+            className="w-5 border-t-2 border-dashed"
             style={{
-              backgroundColor: COLORS.blue,
+              borderColor: COLORS.blue,
             }}
           />
 
@@ -112,7 +190,7 @@ export default function SalesPlanChart({
           </span>
 
           <span className="font-mono text-sm font-semibold text-ink-primary">
-            {formatNumber(plan)} PCS
+            {fmt(plan)} PCS
           </span>
 
         </div>
@@ -121,153 +199,264 @@ export default function SalesPlanChart({
 
 
       {/* =====================================================
-          CHART
+          SVG CHART
       ====================================================== */}
-      <div className="w-full h-[360px]">
 
-        <ResponsiveContainer
-          width="100%"
-          height="100%"
+      <div className="w-full aspect-[1000/390]">
+
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="w-full h-full"
+          role="img"
+          aria-label="Grafik actual sales dibandingkan production plan"
         >
 
-          <ComposedChart
-            data={chartData}
-            margin={{
-              top: 25,
-              right: 30,
-              left: 10,
-              bottom: 10,
-            }}
-          >
+          {/* PANEL */}
 
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="#334155"
-              vertical={false}
-            />
-
-            {/* X AXIS */}
-            <XAxis
-              dataKey="date"
-              tickFormatter={formatDate}
-              tick={{
-                fontSize: 11,
-                fill: "#94a3b8",
-              }}
-              tickLine={false}
-              axisLine={false}
-              minTickGap={25}
-            />
-
-            {/* Y AXIS */}
-            <YAxis
-              tick={{
-                fontSize: 11,
-                fill: "#94a3b8",
-              }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={formatNumber}
-              width={65}
-              domain={[0, "auto"]}
-            />
-
-            {/* TOOLTIP */}
-            <Tooltip
-              content={<SalesTooltip />}
-              cursor={{
-                fill: "rgba(100, 116, 139, 0.08)",
-              }}
-            />
+          <rect
+            x="0"
+            y="0"
+            width={width}
+            height={height}
+            rx="10"
+            fill={COLORS.panel}
+          />
 
 
-            {/* =================================================
-                DAILY PRODUCTION PLAN
-            ================================================== */}
+          {/* =================================================
+              GRID
+          ================================================== */}
 
-            {plan > 0 && (
-              <ReferenceLine
-                y={plan}
-                stroke={COLORS.blue}
-                strokeWidth={2}
-                strokeDasharray="6 4"
-                label={{
-                  value: `PLAN ${formatNumber(plan)}`,
-                  position: "insideTopRight",
-                  fill: COLORS.blue,
-                  fontSize: 11,
-                  fontWeight: 700,
-                }}
+          {gridValues.map((value) => (
+            <g key={value}>
+
+              <line
+                x1={pad.left}
+                x2={width - pad.right}
+                y1={y(value)}
+                y2={y(value)}
+                stroke={COLORS.grid}
+                strokeWidth="1"
               />
-            )}
+
+              <text
+                x={pad.left - 12}
+                y={y(value) + 4}
+                textAnchor="end"
+                fill={COLORS.muted}
+                fontSize="12"
+                fontFamily="monospace"
+              >
+                {fmt(value)}
+              </text>
+
+            </g>
+          ))}
 
 
-            {/* =================================================
-                ACTUAL SALES
-            ================================================== */}
+          {/* Y LABEL */}
 
-            <Bar
-              dataKey="sales"
-              name="Actual Sales"
-              radius={[4, 4, 0, 0]}
-              maxBarSize={48}
-            >
-
-              {chartData.map((entry, index) => (
-                <Cell
-                  key={`sales-${index}`}
-                  fill={getStatusColor(entry.status)}
-                />
-              ))}
-
-            </Bar>
+          <text
+            x="18"
+            y={pad.top - 8}
+            fill={COLORS.muted}
+            fontSize="11"
+            fontFamily="sans-serif"
+          >
+            PCS
+          </text>
 
 
-            {/* =================================================
-                ACTUAL PRODUCTION
-            ================================================== */}
+          {/* =================================================
+              PLAN LINE
+          ================================================== */}
 
-            <Line
-              type="monotone"
-              dataKey="production"
-              name="Actual Production"
+          {plan > 0 && (
+            <>
+              <line
+                x1={pad.left}
+                x2={width - pad.right}
+                y1={planY}
+                y2={planY}
+                stroke={COLORS.blue}
+                strokeWidth="3"
+                strokeDasharray="10 7"
+              />
+
+              <text
+                x={width - pad.right}
+                y={planY - 9}
+                textAnchor="end"
+                fill={COLORS.blue}
+                fontSize="12"
+                fontWeight="700"
+                fontFamily="monospace"
+              >
+                PLAN {fmt(plan)}
+              </text>
+            </>
+          )}
+
+
+          {/* =================================================
+              SALES BAR
+          ================================================== */}
+
+          {chartData.map((item, index) => {
+
+            const sales = item.sales;
+
+            const barX =
+              x(index) -
+              barWidth / 2;
+
+            const barY = y(sales);
+
+            const barH =
+              baseline - barY;
+
+            const color =
+              item.status === "green"
+                ? COLORS.green
+                : item.status === "orange"
+                ? COLORS.orange
+                : COLORS.red;
+
+            return (
+              <g key={`sales-${item.date}-${index}`}>
+
+                <rect
+                  x={barX}
+                  y={barY}
+                  width={barWidth}
+                  height={Math.max(barH, 1)}
+                  rx="3"
+                  fill={color}
+                  opacity="0.92"
+                >
+
+                  <title>
+                    {`${formatDateLong(item.date)}
+                    — Sales ${fmt(sales)} PCS
+                    — Production ${fmt(item.production)} PCS`}
+                  </title>
+
+                </rect>
+
+
+                {/* VALUE */}
+
+                <text
+                  x={x(index)}
+                  y={Math.max(
+                    barY - 8,
+                    pad.top + 12
+                  )}
+                  textAnchor="middle"
+                  fill={COLORS.text}
+                  fontSize="11"
+                  fontWeight="700"
+                  fontFamily="monospace"
+                >
+                  {fmt(sales)}
+                </text>
+
+
+                {/* DATE */}
+
+                <text
+                  x={x(index)}
+                  y={baseline + 22}
+                  textAnchor="middle"
+                  fill={COLORS.muted}
+                  fontSize="11"
+                  fontFamily="monospace"
+                >
+                  {formatDate(item.date)}
+                </text>
+
+
+                {/* PRODUCTION */}
+
+                <text
+                  x={x(index)}
+                  y={baseline + 39}
+                  textAnchor="middle"
+                  fill={COLORS.faint}
+                  fontSize="10"
+                  fontFamily="sans-serif"
+                >
+                  Prod {fmt(item.production)}
+                </text>
+
+              </g>
+            );
+          })}
+
+
+          {/* =================================================
+              PRODUCTION LINE
+          ================================================== */}
+
+          {chartData.length > 1 && (
+            <polyline
+              points={chartData
+                .map(
+                  (item, index) =>
+                    `${x(index)},${y(item.production)}`
+                )
+                .join(" ")}
+              fill="none"
               stroke={COLORS.blue}
-              strokeWidth={2}
-              strokeDasharray="4 4"
-              dot={{
-                r: 3,
-                fill: COLORS.blue,
-                stroke: COLORS.blue,
-              }}
-              activeDot={{
-                r: 5,
-                fill: COLORS.blue,
-                stroke: COLORS.blue,
-              }}
+              strokeWidth="2.5"
+              strokeDasharray="6 5"
             />
+          )}
 
-          </ComposedChart>
 
-        </ResponsiveContainer>
+          {/* =================================================
+              PRODUCTION POINTS
+          ================================================== */}
+
+          {chartData.map((item, index) => (
+            <circle
+              key={`production-${item.date}-${index}`}
+              cx={x(index)}
+              cy={y(item.production)}
+              r="4"
+              fill={COLORS.blue}
+              stroke={COLORS.panel}
+              strokeWidth="2"
+            />
+          ))}
+
+        </svg>
 
       </div>
 
 
       {/* =====================================================
-          STATUS EXPLANATION
+          STATUS SUMMARY
       ====================================================== */}
-      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
 
         <StatusBox
           color="bg-signal-ok"
-          title="SALES ≥ PLAN"
-          description="Actual sales mencapai atau melebihi daily production plan."
+          title={`${greenCount} HARI TARGET`}
+          description="Produksi mencapai daily production plan."
         />
 
         <StatusBox
           color="bg-signal-warn"
-          title="SALES < PLAN"
-          description="Actual sales masih berada di bawah daily production plan."
+          title={`${orangeCount} HARI DI BAWAH PLAN`}
+          description="Produksi belum mencapai plan tetapi masih memenuhi sales."
+        />
+
+        <StatusBox
+          color="bg-signal-crit"
+          title={`${redCount} HARI DI BAWAH SALES`}
+          description="Produksi belum memenuhi kebutuhan actual sales."
         />
 
       </div>
@@ -278,25 +467,34 @@ export default function SalesPlanChart({
 
 
 /* ============================================================
-   STATUS LEGEND
+   LEGEND
 ============================================================ */
 
-function StatusLegend({
+function Legend({
   color,
   label,
+  line = false,
 }) {
   return (
-    <div className="flex items-center gap-1.5">
+    <span className="inline-flex items-center gap-1.5 text-ink-muted">
 
       <span
-        className={`w-2.5 h-2.5 rounded-sm ${color}`}
+        className={
+          line
+            ? "w-5 border-t-2 border-dashed"
+            : "w-2.5 h-2.5 rounded-sm"
+        }
+        style={{
+          borderColor: color,
+          backgroundColor: line
+            ? "transparent"
+            : color,
+        }}
       />
 
-      <span className="text-ink-muted">
-        {label}
-      </span>
+      {label}
 
-    </div>
+    </span>
   );
 }
 
@@ -335,259 +533,95 @@ function StatusBox({
 
 
 /* ============================================================
-   TOOLTIP
+   EMPTY
 ============================================================ */
 
-function SalesTooltip({
-  active,
-  payload,
-  label,
+function EmptyChart({
+  message,
 }) {
-  if (!active || !payload || payload.length === 0) {
-    return null;
-  }
-
-  const point = payload[0]?.payload;
-
-  if (!point) {
-    return null;
-  }
-
-  const sales = Number(point.sales) || 0;
-  const production = Number(point.production) || 0;
-  const plan = Number(point.plan) || 0;
-
-  const gapPlan = sales - plan;
-  const productionGapSales = production - sales;
-
   return (
-    <div className="bg-base-panel border border-base-border rounded-lg shadow-lg p-4 min-w-[250px]">
-
-      {/* DATE */}
-      <p className="font-mono font-semibold text-sm text-ink-primary mb-3">
-        {formatDateLong(label)}
-      </p>
-
-      <div className="space-y-2 text-xs">
-
-        <TooltipRow
-          label="Daily Plan"
-          value={`${formatNumber(plan)} PCS`}
-        />
-
-        <TooltipRow
-          label="Actual Sales"
-          value={`${formatNumber(sales)} PCS`}
-        />
-
-        <TooltipRow
-          label="Actual Production"
-          value={`${formatNumber(production)} PCS`}
-        />
-
-        <div className="border-t border-base-border pt-2 mt-2">
-
-          <TooltipRow
-            label="Sales vs Plan"
-            value={`${gapPlan >= 0 ? "+" : ""}${formatNumber(gapPlan)} PCS`}
-            valueClass={
-              gapPlan >= 0
-                ? "text-signal-ok"
-                : "text-signal-warn"
-            }
-          />
-
-          <TooltipRow
-            label="Production vs Sales"
-            value={`${productionGapSales >= 0 ? "+" : ""}${formatNumber(productionGapSales)} PCS`}
-            valueClass={
-              productionGapSales >= 0
-                ? "text-signal-ok"
-                : "text-signal-crit"
-            }
-          />
-
-        </div>
-
-        {/* STATUS */}
-        <div className="pt-2">
-
-          <span
-            className={`inline-flex items-center gap-2 font-semibold ${getStatusText(
-              point.status
-            )}`}
-          >
-
-            <span
-              className={`w-2 h-2 rounded-full ${getStatusDot(
-                point.status
-              )}`}
-            />
-
-            {getStatusLabel(point.status)}
-
-          </span>
-
-        </div>
-
-      </div>
-
+    <div className="h-72 rounded-lg bg-base-panel border border-base-border flex items-center justify-center text-sm text-ink-muted">
+      {message}
     </div>
   );
 }
 
 
 /* ============================================================
-   TOOLTIP ROW
+   SCALE
 ============================================================ */
 
-function TooltipRow({
-  label,
-  value,
-  valueClass = "text-ink-primary",
-}) {
-  return (
-    <div className="flex justify-between gap-5">
+function niceMax(value) {
+  const step =
+    value <= 500
+      ? 50
+      : value <= 2000
+      ? 250
+      : 500;
 
-      <span className="text-ink-muted">
-        {label}
-      </span>
+  return Math.ceil(value / step) * step;
+}
 
-      <span
-        className={`font-mono font-semibold ${valueClass}`}
-      >
-        {value}
-      </span>
 
-    </div>
+function makeTicks(
+  max,
+  count
+) {
+  return Array.from(
+    { length: count + 1 },
+    (_, index) =>
+      (max / count) * index
   );
 }
 
 
 /* ============================================================
-   STATUS COLOR
+   NUMBER
 ============================================================ */
 
-function getStatusColor(status) {
-  switch (status) {
-
-    case "target":
-      return COLORS.green;
-
-    case "below-plan":
-      return COLORS.orange;
-
-    default:
-      return COLORS.orange;
-  }
+function fmt(value) {
+  return Math.round(
+    Number(value) || 0
+  ).toLocaleString("id-ID");
 }
 
 
 /* ============================================================
-   STATUS TEXT
+   DATE
 ============================================================ */
 
-function getStatusText(status) {
-  switch (status) {
+function formatDate(date) {
+  if (!date) return "-";
 
-    case "target":
-      return "text-signal-ok";
-
-    case "below-plan":
-      return "text-signal-warn";
-
-    default:
-      return "text-ink-muted";
-  }
-}
-
-
-/* ============================================================
-   STATUS DOT
-============================================================ */
-
-function getStatusDot(status) {
-  switch (status) {
-
-    case "target":
-      return "bg-signal-ok";
-
-    case "below-plan":
-      return "bg-signal-warn";
-
-    default:
-      return "bg-ink-muted";
-  }
-}
-
-
-/* ============================================================
-   STATUS LABEL
-============================================================ */
-
-function getStatusLabel(status) {
-  switch (status) {
-
-    case "target":
-      return "SALES ≥ PLAN";
-
-    case "below-plan":
-      return "SALES < PLAN";
-
-    default:
-      return "TIDAK DIKETAHUI";
-  }
-}
-
-
-/* ============================================================
-   DATE FORMAT
-============================================================ */
-
-function formatDate(value) {
-  if (!value) return "";
-
-  const parts = value.split("-");
-
-  if (parts.length !== 3) {
-    return value;
-  }
-
-  const [, month, day] = parts;
+  const [
+    year,
+    month,
+    day,
+  ] = date.split("-");
 
   return `${day}/${month}`;
 }
 
 
-function formatDateLong(value) {
-  if (!value) return "-";
+function formatDateLong(date) {
+  if (!date) return "-";
 
-  const parts = value.split("-");
-
-  if (parts.length !== 3) {
-    return value;
-  }
-
-  const [year, month, day] = parts;
+  const [
+    year,
+    month,
+    day,
+  ] = date.split("-");
 
   return new Date(
     Number(year),
     Number(month) - 1,
     Number(day)
-  ).toLocaleDateString("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-
-/* ============================================================
-   NUMBER FORMAT
-============================================================ */
-
-function formatNumber(value) {
-  return Math.round(
-    Number(value) || 0
-  ).toLocaleString("id-ID");
+  ).toLocaleDateString(
+    "id-ID",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }
+  );
 }
