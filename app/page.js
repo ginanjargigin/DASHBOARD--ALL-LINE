@@ -6,6 +6,7 @@ import { actualProduction } from "@/lib/calc";
 import ProductionPlanChart from "@/components/ProductionPlanChart";
 import SalesPlanChart from "@/components/SalesPlanChart";
 import LineKpiCards from "@/components/LineKpiCards";
+import OvertimeAnalysis from "@/components/OvertimeAnalysis";
 
 export default function DashboardPage() {
   const [lines, setLines] = useState([]);
@@ -125,21 +126,19 @@ export default function DashboardPage() {
   // =========================================================
   // CHART DATA
   // =========================================================
-  const chartData = useMemo(() => {
-    return lineRecords.map((record) => ({
-      date: record.date,
-
-      // Total actual production:
-      // Normal Merah
-      // + OT Merah
-      // + Normal Putih
-      // + OT Putih
-      actual: actualProduction(record),
-
-      // Actual sales
-      sales: Number(record.actualSales) || 0,
-    }));
-  }, [lineRecords]);
+    const chartData = useMemo(() => {
+      return lineRecords.map((record) => ({
+        date: record.date,
+    
+        actual: actualProduction(record),
+    
+        sales: Number(record.actualSales) || 0,
+    
+        planOT: Number(record.planOT) || 0,
+    
+        actualOT: Number(record.actualOT) || 0,
+      }));
+    }, [lineRecords]);
 
   // =========================================================
   // DAILY STATUS SUMMARY
@@ -462,19 +461,24 @@ export default function DashboardPage() {
           {/* =================================================
               STATUS TABLE
           ================================================== */}
-          <DailyStatusTable
-            data={chartData}
-            plan={dailyPlan}
-          />
-
-        </div>
-
-      )}
-
-    </main>
-  );
-}
-
+        <ProductionPlanChart
+          data={chartData}
+          plan={dailyPlan}
+        />
+        
+        <SalesPlanChart
+          data={chartData}
+          plan={dailyPlan}
+        />
+        
+        <OvertimeAnalysis
+          data={chartData}
+        />
+        
+        <DailyStatusTable
+          data={chartData}
+          plan={dailyPlan}
+        />
 
 /* ============================================================
    SUMMARY PILL
