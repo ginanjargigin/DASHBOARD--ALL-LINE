@@ -430,29 +430,32 @@ export default function DashboardPage() {
             }
           />
 
-          {/* =================================================
-              PRODUCTION VS PLAN
+         {/* =================================================
+              CHART GRID
           ================================================== */}
-          <section className="bg-base-panel border border-base-border rounded-lg p-4">
-
-            <ProductionPlanChart
-              data={chartData}
-              plan={dailyPlan}
-            />
-
-          </section>
-
-
-          {/* =================================================
-              SALES VS PLAN
-          ================================================== */}
-          <section className="bg-base-panel border border-base-border rounded-lg p-4">
-
-            <SalesPlanChart
-              data={chartData}
-              plan={dailyPlan}
-            />
-
+          <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          
+            {/* PRODUCTION VS PLAN */}
+            <div className="bg-base-panel border border-base-border rounded-lg p-4 min-w-0">
+          
+              <ProductionPlanChart
+                data={chartData}
+                plan={dailyPlan}
+              />
+          
+            </div>
+          
+          
+            {/* SALES VS PRODUCTION PLAN */}
+            <div className="bg-base-panel border border-base-border rounded-lg p-4 min-w-0">
+          
+              <SalesPlanChart
+                data={chartData}
+                plan={dailyPlan}
+              />
+          
+            </div>
+          
           </section>
 
 
