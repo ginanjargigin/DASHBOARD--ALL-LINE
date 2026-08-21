@@ -23,21 +23,33 @@ export default function TVPage() {
 
     refreshData();
 
-    // Refresh setiap 30 detik
-    const timer = setInterval(refreshData, 30000);
+    // Refresh data setiap 30 detik
+    const dataTimer = setInterval(() => {
+      refreshData();
+    }, 30000);
 
-    return () => clearInterval(timer);
+    // Update jam setiap 1 detik
+    const clockTimer = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+
+    return () => {
+      clearInterval(dataTimer);
+      clearInterval(clockTimer);
+    };
   }, []);
 
   // =========================================================
-  // DATA LINE
+  // DATA 10 LINE
   // =========================================================
 
   const lineData = useMemo(() => {
     return lines.slice(0, 10).map((line) => {
       const lineRecords = records
         .filter((record) => record.lineId === line.id)
-        .sort((a, b) => a.date.localeCompare(b.date));
+        .sort((a, b) =>
+          a.date.localeCompare(b.date)
+        );
 
       const latestRecord =
         lineRecords[lineRecords.length - 1];
@@ -79,21 +91,28 @@ export default function TVPage() {
     let red = 0;
 
     lineData.forEach((item) => {
-      const actual = item.production;
-      const plan = item.plan;
-      const sales = item.sales;
+      const actual = Number(item.production) || 0;
+      const plan = Number(item.plan) || 0;
+      const sales = Number(item.sales) || 0;
 
       if (!item.hasData) {
         return;
       }
 
+      // TARGET
       if (plan > 0 && actual >= plan) {
         green++;
-      } else if (actual >= sales) {
-        orange++;
-      } else {
-        red++;
+        return;
       }
+
+      // BELOW PLAN
+      if (actual >= sales) {
+        orange++;
+        return;
+      }
+
+      // BELOW SALES
+      red++;
     });
 
     return {
@@ -110,7 +129,7 @@ export default function TVPage() {
 
   if (lines.length === 0) {
     return (
-      <main className="min-h-screen bg-base-bg flex items-center justify-center">
+      <main className="fixed inset-0 bg-base-bg flex items-center justify-center">
 
         <div className="text-center">
 
@@ -130,44 +149,89 @@ export default function TVPage() {
   }
 
   return (
-    <main className="h-screen overflow-hidden bg-base-bg px-5 py-4 flex flex-col">
+    <main
+      className="
+        fixed
+        inset-0
+        z-[9999]
+        bg-base-bg
+        overflow-hidden
+        px-5
+        py-4
+      "
+    >
 
       {/* =====================================================
-          HEADER
+          TV HEADER
       ====================================================== */}
 
-      <header className="flex items-center justify-between mb-4">
+      <header
+        className="
+          flex
+          items-center
+          justify-between
+          gap-6
+          pb-3
+          border-b
+          border-base-border
+        "
+      >
 
         {/* TITLE */}
 
-        <div>
+        <div className="min-w-0">
 
           <div className="flex items-center gap-3">
 
-            <h1 className="font-display font-bold text-2xl tracking-tight">
+            <h1
+              className="
+                font-display
+                font-bold
+                text-2xl
+                xl:text-3xl
+                tracking-tight
+              "
+            >
               PAPAN PRODUKSI
             </h1>
 
-            <span className="text-signal-plan font-display font-bold">
+            <span
+              className="
+                text-signal-plan
+                font-display
+                font-bold
+                text-lg
+                xl:text-xl
+              "
+            >
               TV
             </span>
 
           </div>
 
-          <p className="text-xs text-ink-muted mt-1">
+          <p className="text-xs xl:text-sm text-ink-muted mt-0.5">
             Monitoring realtime seluruh line produksi
           </p>
 
         </div>
 
 
-        {/* RIGHT SIDE */}
+        {/* RIGHT HEADER */}
 
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-6 shrink-0">
 
           {/* SUMMARY */}
 
-          <div className="flex items-center gap-3 font-mono text-xs">
+          <div
+            className="
+              flex
+              items-center
+              gap-4
+              font-mono
+              text-xs
+              xl:text-sm
+            "
+          >
 
             <StatusSummary
               color="bg-signal-ok"
@@ -194,7 +258,16 @@ export default function TVPage() {
 
           <div className="text-right">
 
-            <p className="font-mono font-bold text-lg text-ink-primary">
+            <p
+              className="
+                font-mono
+                font-bold
+                text-xl
+                xl:text-2xl
+                text-ink-primary
+                leading-none
+              "
+            >
               {now
                 ? now.toLocaleTimeString("id-ID", {
                     hour: "2-digit",
@@ -204,7 +277,15 @@ export default function TVPage() {
                 : "--:--:--"}
             </p>
 
-            <p className="text-[10px] text-ink-muted font-mono">
+            <p
+              className="
+                text-[10px]
+                xl:text-xs
+                text-ink-muted
+                font-mono
+                mt-1
+              "
+            >
               {now
                 ? now.toLocaleDateString("id-ID", {
                     weekday: "short",
@@ -226,19 +307,16 @@ export default function TVPage() {
           LINE GRID
       ====================================================== */}
 
-             <section
-          className="
-            flex-1
-            min-h-0
-            grid
-            grid-cols-2
-            md:grid-cols-3
-            lg:grid-cols-4
-            xl:grid-cols-5
-            gap-3
-            items-start
-          "
-        >
+      <section
+        className="
+          grid
+          grid-cols-5
+          grid-rows-2
+          gap-3
+          mt-3
+          items-start
+        "
+      >
 
         {lineData.map((item) => (
 
@@ -259,13 +337,40 @@ export default function TVPage() {
           FOOTER
       ====================================================== */}
 
-      <footer className="flex items-center justify-between mt-4 pt-3 border-t border-base-border">
+      <footer
+        className="
+          absolute
+          left-5
+          right-5
+          bottom-2
+          flex
+          items-center
+          justify-between
+          pt-2
+          border-t
+          border-base-border
+        "
+      >
 
-        <p className="text-[10px] text-ink-faint font-mono">
+        <p
+          className="
+            text-[9px]
+            xl:text-[10px]
+            text-ink-faint
+            font-mono
+          "
+        >
           {summary.total} LINE AKTIF
         </p>
 
-        <p className="text-[10px] text-ink-faint font-mono">
+        <p
+          className="
+            text-[9px]
+            xl:text-[10px]
+            text-ink-faint
+            font-mono
+          "
+        >
           AUTO REFRESH 30s
         </p>
 
@@ -289,7 +394,14 @@ function StatusSummary({
     <div className="flex items-center gap-1.5">
 
       <span
-        className={`w-2 h-2 rounded-full ${color}`}
+        className={`
+          w-2
+          h-2
+          xl:w-2.5
+          xl:h-2.5
+          rounded-full
+          ${color}
+        `}
       />
 
       <span className="text-ink-muted">
