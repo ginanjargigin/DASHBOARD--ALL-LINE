@@ -326,6 +326,7 @@ export default function TVPage() {
             production={item.production}
             plan={item.plan}
             sales={item.sales}
+            hasData={item.hasData}
           />
 
         ))}
