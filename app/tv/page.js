@@ -196,7 +196,7 @@ export default function TVPage() {
                 xl:text-3xl
                 tracking-tight
               "
-           </h1> 
+           > 
              
              <div className="flex items-center gap-3">
         
@@ -214,18 +214,18 @@ export default function TVPage() {
             "
             title="Kembali ke Dashboard"
           >
-            ←
           </Link>
         
           <h1 className="font-display font-bold text-2xl tracking-tight">
             PAPAN PRODUKSI
-          </h1>
+         
         
           <span className="text-signal-plan font-display font-bold">
             TV
           </span>
-        
-        </div>
+         </h1>
+       
+          </div>
 
           <p className="text-xs xl:text-sm text-ink-muted mt-0.5">
             Monitoring realtime seluruh line produksi
