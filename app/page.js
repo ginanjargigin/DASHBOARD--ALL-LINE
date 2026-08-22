@@ -405,15 +405,26 @@ export default function DashboardPage() {
               Line
             </span>
 
-            <select
+             <select
               value={selectedLine?.id || ""}
               onChange={(e) =>
-                setSelectedLineId(
-                  e.target.value
-                )
+                setSelectedLineId(e.target.value)
               }
-              className="input"
-            >
+              className="
+                w-full
+                bg-base-panelAlt
+                border border-base-border
+                rounded
+                px-3 py-2
+                text-sm
+                font-mono
+                text-ink-primary
+                focus:outline-none
+                focus:ring-2
+                focus:ring-signal-plan/60
+              "
+            >           
+                
 
               {lines.map((line) => (
                 <option
@@ -435,15 +446,25 @@ export default function DashboardPage() {
               Periode
             </span>
 
-            <select
-              value={selectedMonth}
-              onChange={(e) =>
-                setSelectedMonth(
-                  e.target.value
-                )
-              }
-              className="input"
-            >
+               <select
+                value={selectedMonth}
+                onChange={(e) =>
+                  setSelectedMonth(e.target.value)
+                }
+                className="
+                  w-full
+                  bg-base-panelAlt
+                  border border-base-border
+                  rounded
+                  px-3 py-2
+                  text-sm
+                  font-mono
+                  text-ink-primary
+                  focus:outline-none
+                  focus:ring-2
+                  focus:ring-signal-plan/60
+                "
+              >
 
               {availableMonths.map(
                 (month) => (
