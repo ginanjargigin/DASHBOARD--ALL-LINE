@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+
 import { useEffect, useMemo, useState } from "react";
 import { getLines, getRecords } from "@/lib/storage";
 import { actualProduction } from "@/lib/calc";
@@ -197,26 +197,7 @@ export default function TVPage() {
                 tracking-tight
               "
             >
-                <div className="flex items-center gap-3">
-
-              <Link
-                href="/"
-                className="
-                  flex items-center justify-center
-                  w-8 h-8
-                  rounded
-                  border border-base-border
-                  text-ink-muted
-                  hover:text-ink-primary
-                  hover:border-signal-plan
-                  transition
-                "
-                title="Kembali ke Dashboard"
-              >
-                ←
-              </Link>
-            
-              <h1 className="font-display font-bold text-2xl tracking-tight">
+             
               PAPAN PRODUKSI
             </h1>
 
