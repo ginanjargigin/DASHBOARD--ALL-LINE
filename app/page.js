@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getLines, getRecords } from "@/lib/storage";
 import { actualProduction } from "@/lib/calc";
@@ -235,6 +236,7 @@ export default function DashboardPage() {
       {/* =====================================================
           HEADER
       ====================================================== */}
+    
       <header className="mb-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
 
@@ -260,31 +262,46 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          {/* STATUS COUNTER */}
-          <div className="flex flex-wrap gap-2 font-mono text-xs">
-
-            <SummaryPill
-              color="bg-signal-ok"
-              label="Target"
-              value={summary.green}
-            />
-
-            <SummaryPill
-              color="bg-signal-warn"
-              label="Di bawah plan"
-              value={summary.orange}
-            />
-
-            <SummaryPill
-              color="bg-signal-crit"
-              label="Di bawah sales"
-              value={summary.red}
-            />
-
-          </div>
+           {/* RIGHT HEADER */}
+        
+        <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
+        
+          <Link
+            href="/tv"
+            className="
+              flex items-center gap-2
+              px-3 py-1.5
+              rounded
+              border border-signal-plan
+              text-signal-plan
+              font-bold
+              hover:bg-signal-plan/10
+              transition
+            "
+          >
+            <span>▣</span>
+            TV MODE
+          </Link>
+        
+          <SummaryPill
+            color="bg-signal-ok"
+            label="Target"
+            value={summary.green}
+          />
+        
+          <SummaryPill
+            color="bg-signal-warn"
+            label="Di bawah plan"
+            value={summary.orange}
+          />
+        
+          <SummaryPill
+            color="bg-signal-crit"
+            label="Di bawah sales"
+            value={summary.red}
+          />
+        
         </div>
-      </header>
-
 
       {/* =====================================================
           FILTER BAR
