@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+
 import {
   getLines,
   getRecords,
@@ -27,61 +28,48 @@ export default function DashboardPage() {
   // =========================================================
 
   useEffect(() => {
-    const refreshData = () => {
+    const refresh = () => {
       const nextLines = getLines();
       const nextRecords = getRecords();
 
       setLines(nextLines);
       setRecords(nextRecords);
+      setNow(new Date());
 
-      // Pilih line pertama secara otomatis
-      setSelectedLineId((current) => {
-        if (current) return current;
-        return nextLines.length > 0 ? nextLines[0].id : "";
+      setSelectedLineId((old) => {
+        return old || nextLines[0]?.id || "";
       });
 
-      // Pilih bulan terbaru secara otomatis
-      setSelectedMonth((current) => {
-        if (current) return current;
+      setSelectedMonth((old) => {
+        if (old) return old;
 
-        if (nextRecords.length === 0) {
-          return new Date().toISOString().slice(0, 7);
-        }
+        const dates = nextRecords
+          .map((r) => r.date)
+          .filter(Boolean)
+          .sort();
 
-        const sorted = [...nextRecords].sort((a, b) =>
-          a.date.localeCompare(b.date)
-        );
-
-        const latestRecord = sorted[sorted.length - 1];
-
-        return latestRecord?.date
-          ? latestRecord.date.slice(0, 7)
+        return dates.length
+          ? dates[dates.length - 1].slice(0, 7)
           : new Date().toISOString().slice(0, 7);
       });
-
-      setNow(new Date());
     };
 
-    refreshData();
+    refresh();
 
-    // Refresh setiap 30 detik
-    const timer = setInterval(() => {
-      refreshData();
-    }, 30000);
-
-    // Jam tetap update setiap detik
-    const clockTimer = setInterval(() => {
-      setNow(new Date());
-    }, 1000);
+    const dataTimer = setInterval(refresh, 30000);
+    const clockTimer = setInterval(
+      () => setNow(new Date()),
+      1000
+    );
 
     return () => {
-      clearInterval(timer);
+      clearInterval(dataTimer);
       clearInterval(clockTimer);
     };
   }, []);
 
   // =========================================================
-  // AVAILABLE MONTHS
+  // MONTHS
   // =========================================================
 
   const availableMonths = useMemo(() => {
@@ -93,11 +81,12 @@ export default function DashboardPage() {
       }
     });
 
-    // Pastikan bulan sekarang tetap tersedia
-    months.add(new Date().toISOString().slice(0, 7));
+    if (selectedMonth) {
+      months.add(selectedMonth);
+    }
 
     return [...months].sort().reverse();
-  }, [records]);
+  }, [records, selectedMonth]);
 
   // =========================================================
   // SELECTED LINE
@@ -105,30 +94,27 @@ export default function DashboardPage() {
 
   const selectedLine = useMemo(() => {
     return (
-      lines.find((line) => line.id === selectedLineId) ||
+      lines.find(
+        (line) => line.id === selectedLineId
+      ) ||
       lines[0] ||
       null
     );
   }, [lines, selectedLineId]);
 
   // =========================================================
-  // RECORDS FOR SELECTED LINE + MONTH
+  // RECORDS
   // =========================================================
 
   const lineRecords = useMemo(() => {
     if (!selectedLine) return [];
 
     return records
-      .filter((record) => {
-        const sameLine =
-          record.lineId === selectedLine.id;
-
-        const sameMonth =
-          !selectedMonth ||
-          record.date?.startsWith(selectedMonth);
-
-        return sameLine && sameMonth;
-      })
+      .filter(
+        (record) =>
+          record.lineId === selectedLine.id &&
+          record.date?.startsWith(selectedMonth)
+      )
       .sort((a, b) =>
         a.date.localeCompare(b.date)
       );
@@ -140,41 +126,37 @@ export default function DashboardPage() {
 
   // =========================================================
   // CHART DATA
-  //
-  // PLAN SEKARANG DIAMBIL DARI MASTER PLAN BULANAN
-  // BERDASARKAN TANGGAL.
   // =========================================================
 
   const chartData = useMemo(() => {
     if (!selectedLine) return [];
 
-    return lineRecords.map((record) => {
-      const plan =
+    return lineRecords.map((record) => ({
+      date: record.date,
+
+      // PRODUKSI AKTUAL
+      actual: actualProduction(record),
+
+      // SALES AKTUAL
+      sales:
+        Number(record.actualSales) || 0,
+
+      // PLAN HARIAN
+      plan:
         Number(
           getPlanForDate(
             selectedLine.id,
             record.date
           )
-        ) || 0;
+        ) || 0,
 
-      return {
-        date: record.date,
+      // OVERTIME
+      planOT:
+        Number(record.planOT) || 0,
 
-        actual:
-          actualProduction(record),
-
-        sales:
-          Number(record.actualSales) || 0,
-
-        plan,
-
-        planOT:
-          Number(record.planOT) || 0,
-
-        actualOT:
-          Number(record.actualOT) || 0,
-      };
-    });
+      actualOT:
+        Number(record.actualOT) || 0,
+    }));
   }, [
     lineRecords,
     selectedLine,
@@ -182,72 +164,59 @@ export default function DashboardPage() {
 
   // =========================================================
   // DAILY PLAN
-  //
-  // Mengambil plan dari hari kerja pertama
-  // yang mempunyai plan pada bulan tersebut.
   // =========================================================
 
   const dailyPlan = useMemo(() => {
-    const itemWithPlan = chartData.find(
-      (item) => Number(item.plan) > 0
+    const item = chartData.find(
+      (item) => item.plan > 0
     );
 
-    return itemWithPlan
-      ? Number(itemWithPlan.plan)
-      : 0;
+    return item?.plan || 0;
   }, [chartData]);
 
   // =========================================================
-  // CURRENT DAY PLAN
-  //
-  // Plan untuk record terakhir.
-  // Digunakan oleh KPI.
+  // LATEST DATA
   // =========================================================
 
-  const latestRecord = useMemo(() => {
-    if (!lineRecords.length) return null;
-
-    return lineRecords[lineRecords.length - 1];
-  }, [lineRecords]);
-
   const latestData = useMemo(() => {
-    if (!latestRecord) {
+    if (!lineRecords.length) {
       return {
         plan: 0,
         actual: 0,
         sales: 0,
-        actualOT: 0,
         planOT: 0,
+        actualOT: 0,
       };
     }
 
-    const plan =
-      Number(
-        getPlanForDate(
-          latestRecord.lineId,
-          latestRecord.date
-        )
-      ) || 0;
+    const record =
+      lineRecords[lineRecords.length - 1];
 
     return {
-      plan,
+      plan:
+        Number(
+          getPlanForDate(
+            record.lineId,
+            record.date
+          )
+        ) || 0,
 
       actual:
-        actualProduction(latestRecord),
+        actualProduction(record),
 
       sales:
-        Number(latestRecord.actualSales) || 0,
-
-      actualOT:
-        Number(latestRecord.actualOT) || 0,
+        Number(record.actualSales) || 0,
 
       planOT:
-        Number(latestRecord.planOT) || 0,
+        Number(record.planOT) || 0,
+
+      actualOT:
+        Number(record.actualOT) || 0,
     };
-  }, [latestRecord]);
+  }, [lineRecords]);
 
   // =========================================================
-  // DAILY STATUS SUMMARY
+  // SUMMARY
   // =========================================================
 
   const summary = useMemo(() => {
@@ -256,32 +225,18 @@ export default function DashboardPage() {
     let red = 0;
 
     chartData.forEach((item) => {
-      const actual =
-        Number(item.actual) || 0;
-
-      const plan =
-        Number(item.plan) || 0;
-
-      const sales =
-        Number(item.sales) || 0;
-
-      // TARGET
       if (
-        plan > 0 &&
-        actual >= plan
+        item.plan > 0 &&
+        item.actual >= item.plan
       ) {
         green++;
-        return;
-      }
-
-      // BELOW PLAN
-      if (actual >= sales) {
+      } else if (
+        item.actual >= item.sales
+      ) {
         orange++;
-        return;
+      } else {
+        red++;
       }
-
-      // BELOW SALES
-      red++;
     });
 
     return {
@@ -293,38 +248,28 @@ export default function DashboardPage() {
   }, [chartData]);
 
   // =========================================================
-  // MONTHLY SUMMARY
+  // MONTHLY TOTAL
   // =========================================================
 
-  const monthlySummary = useMemo(() => {
-    if (!chartData.length) {
-      return {
-        totalProduction: 0,
-        totalSales: 0,
-        totalPlan: 0,
-        averageProduction: 0,
-        averageSales: 0,
-      };
-    }
-
+  const monthly = useMemo(() => {
     const totalProduction =
       chartData.reduce(
         (sum, item) =>
-          sum + Number(item.actual || 0),
+          sum + item.actual,
         0
       );
 
     const totalSales =
       chartData.reduce(
         (sum, item) =>
-          sum + Number(item.sales || 0),
+          sum + item.sales,
         0
       );
 
     const totalPlan =
       chartData.reduce(
         (sum, item) =>
-          sum + Number(item.plan || 0),
+          sum + item.plan,
         0
       );
 
@@ -332,23 +277,32 @@ export default function DashboardPage() {
       totalProduction,
       totalSales,
       totalPlan,
-
-      averageProduction:
-        totalProduction /
-        chartData.length,
-
-      averageSales:
-        totalSales /
-        chartData.length,
     };
   }, [chartData]);
 
   // =========================================================
-  // EMPTY LINE
+  // EMPTY
   // =========================================================
 
-  if (lines.length === 0) {
-    return <EmptyState />;
+  if (!lines.length) {
+    return (
+      <main className="max-w-[1600px] mx-auto px-5 py-16">
+        <div className="border border-dashed border-base-border rounded-lg py-16 text-center">
+
+          <p className="text-ink-muted mb-3">
+            Belum ada line yang terdaftar.
+          </p>
+
+          <Link
+            href="/lines"
+            className="text-signal-plan font-medium hover:underline"
+          >
+            Tambah line pertama →
+          </Link>
+
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -356,7 +310,7 @@ export default function DashboardPage() {
 
       {/* =====================================================
           HEADER
-      ====================================================== */}
+      ===================================================== */}
 
       <header className="mb-5">
 
@@ -383,31 +337,27 @@ export default function DashboardPage() {
             </h1>
 
             <p className="text-sm text-ink-muted mt-1">
-              Monitoring pencapaian produksi terhadap daily plan
-              dan kebutuhan actual sales.
+              Monitoring pencapaian produksi terhadap
+              daily plan dan actual sales.
             </p>
 
           </div>
 
-          {/* RIGHT HEADER */}
-
-          <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
+          <div className="flex flex-wrap gap-2">
 
             <Link
               href="/tv"
               className="
-                flex items-center gap-2
                 px-3 py-1.5
                 rounded
                 border border-signal-plan
                 text-signal-plan
+                text-xs
                 font-bold
                 hover:bg-signal-plan/10
-                transition
               "
             >
-              <span>▣</span>
-              TV MODE
+              ▣ TV MODE
             </Link>
 
             <SummaryPill
@@ -436,16 +386,20 @@ export default function DashboardPage() {
 
 
       {/* =====================================================
-          FILTER BAR
-      ====================================================== */}
+          FILTER
+      ===================================================== */}
 
-      <section className="bg-base-panel border border-base-border rounded-lg p-4 mb-5">
+      <section className="
+        bg-base-panel
+        border border-base-border
+        rounded-lg
+        p-4
+        mb-5
+      ">
 
         <div className="flex flex-wrap items-end gap-4">
 
-          {/* LINE */}
-
-          <label className="block min-w-[220px]">
+          <label className="min-w-[220px]">
 
             <span className="block text-xs text-ink-muted mb-1">
               Line
@@ -453,33 +407,21 @@ export default function DashboardPage() {
 
             <select
               value={selectedLine?.id || ""}
-              onChange={(event) =>
+              onChange={(e) =>
                 setSelectedLineId(
-                  event.target.value
+                  e.target.value
                 )
               }
-              className="
-                w-full
-                bg-base-panelAlt
-                border border-base-border
-                rounded
-                px-3 py-2
-                text-sm
-                focus:outline-none
-                focus:ring-2
-                focus:ring-signal-plan/60
-              "
+              className="input"
             >
 
               {lines.map((line) => (
-
                 <option
                   key={line.id}
                   value={line.id}
                 >
                   {line.name}
                 </option>
-
               ))}
 
             </select>
@@ -487,9 +429,7 @@ export default function DashboardPage() {
           </label>
 
 
-          {/* MONTH */}
-
-          <label className="block min-w-[190px]">
+          <label className="min-w-[190px]">
 
             <span className="block text-xs text-ink-muted mb-1">
               Periode
@@ -497,59 +437,39 @@ export default function DashboardPage() {
 
             <select
               value={selectedMonth}
-              onChange={(event) =>
+              onChange={(e) =>
                 setSelectedMonth(
-                  event.target.value
+                  e.target.value
                 )
               }
-              className="
-                w-full
-                bg-base-panelAlt
-                border border-base-border
-                rounded
-                px-3 py-2
-                text-sm
-                focus:outline-none
-                focus:ring-2
-                focus:ring-signal-plan/60
-              "
+              className="input"
             >
 
-              {availableMonths.map((month) => (
-
-                <option
-                  key={month}
-                  value={month}
-                >
-                  {formatMonth(month)}
-                </option>
-
-              ))}
+              {availableMonths.map(
+                (month) => (
+                  <option
+                    key={month}
+                    value={month}
+                  >
+                    {formatMonth(month)}
+                  </option>
+                )
+              )}
 
             </select>
 
           </label>
 
 
-          {/* DAILY PLAN */}
-
           <Metric
             label="Daily Plan"
             value={`${fmt(dailyPlan)} PCS`}
           />
 
-
-          {/* MONTHLY PLAN */}
-
           <Metric
             label="Total Plan"
-            value={`${fmt(
-              monthlySummary.totalPlan
-            )} PCS`}
+            value={`${fmt(monthly.totalPlan)} PCS`}
           />
-
-
-          {/* DAYS */}
 
           <Metric
             label="Hari Data"
@@ -563,13 +483,12 @@ export default function DashboardPage() {
 
       {/* =====================================================
           NO DATA
-      ====================================================== */}
+      ===================================================== */}
 
-      {chartData.length === 0 ? (
+      {!chartData.length ? (
 
-        <section className="
-          border
-          border-dashed
+        <div className="
+          border border-dashed
           border-base-border
           rounded-lg
           py-16
@@ -577,62 +496,37 @@ export default function DashboardPage() {
         ">
 
           <p className="text-ink-muted">
-
             Belum ada data untuk{" "}
-
             <strong>
               {selectedLine?.name}
             </strong>
-
-            {" "}pada periode{" "}
-
+            {" "}pada{" "}
             <strong>
               {formatMonth(selectedMonth)}
             </strong>.
-
           </p>
 
-          <p className="text-xs text-ink-faint mt-2">
-            Masukkan data melalui menu Input Harian terlebih dahulu.
-          </p>
-
-        </section>
+        </div>
 
       ) : (
 
         <div className="space-y-5">
 
           {/* =================================================
-              CURRENT LINE KPI
+              KPI
           ================================================== */}
 
           <LineKpiCards
-
-            production={
-              latestData.actual
-            }
-
-            plan={
-              latestData.plan
-            }
-
-            sales={
-              latestData.sales
-            }
-
-            otActual={
-              latestData.actualOT
-            }
-
-            otPlan={
-              latestData.planOT
-            }
-
+            production={latestData.actual}
+            plan={latestData.plan}
+            sales={latestData.sales}
+            otActual={latestData.actualOT}
+            otPlan={latestData.planOT}
           />
 
 
           {/* =================================================
-              CHART GRID
+              CHART
           ================================================== */}
 
           <section className="
@@ -642,14 +536,11 @@ export default function DashboardPage() {
             gap-4
           ">
 
-            {/* PRODUCTION VS PLAN */}
-
             <div className="
               bg-base-panel
               border border-base-border
               rounded-lg
               p-4
-              min-w-0
             ">
 
               <ProductionPlanChart
@@ -660,14 +551,11 @@ export default function DashboardPage() {
             </div>
 
 
-            {/* SALES VS PRODUCTION PLAN */}
-
             <div className="
               bg-base-panel
               border border-base-border
               rounded-lg
               p-4
-              min-w-0
             ">
 
               <SalesPlanChart
@@ -681,7 +569,7 @@ export default function DashboardPage() {
 
 
           {/* =================================================
-              OVERTIME ANALYSIS
+              OVERTIME
           ================================================== */}
 
           <OvertimeAnalysis
@@ -690,7 +578,7 @@ export default function DashboardPage() {
 
 
           {/* =================================================
-              STATUS TABLE
+              TABLE
           ================================================== */}
 
           <DailyStatusTable
@@ -707,7 +595,7 @@ export default function DashboardPage() {
 
 
 /* ============================================================
-   SUMMARY PILL
+   SUMMARY
 ============================================================ */
 
 function SummaryPill({
@@ -717,36 +605,25 @@ function SummaryPill({
 }) {
   return (
     <div className="
-      flex
-      items-center
-      gap-2
+      flex items-center gap-2
       bg-base-panel
       border border-base-border
       rounded
-      px-3
-      py-1.5
+      px-3 py-1.5
+      font-mono text-xs
     ">
 
       <span
-        className={`
-          w-2.5
-          h-2.5
-          rounded-full
-          ${color}
-        `}
+        className={`w-2.5 h-2.5 rounded-full ${color}`}
       />
 
       <span className="text-ink-muted">
         {label}
       </span>
 
-      <span className="
-        text-ink-primary
-        font-semibold
-        tabular
-      ">
+      <strong className="text-ink-primary">
         {value}
-      </span>
+      </strong>
 
     </div>
   );
@@ -768,7 +645,6 @@ function Metric({
         text-[11px]
         text-ink-faint
         uppercase
-        tracking-wide
       ">
         {label}
       </p>
@@ -777,7 +653,6 @@ function Metric({
         font-mono
         font-semibold
         text-ink-primary
-        mt-0.5
       ">
         {value}
       </p>
@@ -788,7 +663,7 @@ function Metric({
 
 
 /* ============================================================
-   DAILY STATUS TABLE
+   TABLE
 ============================================================ */
 
 function DailyStatusTable({
@@ -803,10 +678,8 @@ function DailyStatusTable({
     ">
 
       <div className="
-        px-4
-        py-3
-        border-b
-        border-base-border
+        px-4 py-3
+        border-b border-base-border
       ">
 
         <h2 className="
@@ -817,17 +690,7 @@ function DailyStatusTable({
           Status Harian
         </h2>
 
-        <p className="
-          text-xs
-          text-ink-muted
-          mt-0.5
-        ">
-          Warna menunjukkan hubungan actual production,
-          daily plan, dan actual sales.
-        </p>
-
       </div>
-
 
       <div className="overflow-x-auto">
 
@@ -838,7 +701,6 @@ function DailyStatusTable({
             text-ink-muted
             text-xs
             uppercase
-            tracking-wide
           ">
 
             <tr>
@@ -875,35 +737,24 @@ function DailyStatusTable({
 
           </thead>
 
-
           <tbody>
 
             {data.map((item) => {
 
-              const actual =
-                Number(item.actual) || 0;
-
-              const plan =
-                Number(item.plan) || 0;
-
-              const sales =
-                Number(item.sales) || 0;
-
               const gapPlan =
-                actual - plan;
+                item.actual - item.plan;
 
               const gapSales =
-                actual - sales;
+                item.actual - item.sales;
 
               const status =
-                getProductionStatus(
-                  actual,
-                  plan,
-                  sales
+                getStatus(
+                  item.actual,
+                  item.plan,
+                  item.sales
                 );
 
               return (
-
                 <tr
                   key={item.date}
                   className="
@@ -913,115 +764,78 @@ function DailyStatusTable({
                   "
                 >
 
-                  <td className="
-                    px-4
-                    py-3
-                    font-mono
-                  ">
-                    {formatDateLong(
-                      item.date
-                    )}
+                  <td className="px-4 py-3 font-mono">
+                    {formatDateLong(item.date)}
                   </td>
 
-
                   <td className="
-                    px-4
-                    py-3
+                    px-4 py-3
                     text-right
                     font-mono
                   ">
-                    {fmt(plan)}
+                    {fmt(item.plan)}
                   </td>
 
-
                   <td className="
-                    px-4
-                    py-3
+                    px-4 py-3
                     text-right
                     font-mono
                     font-semibold
                   ">
-                    {fmt(actual)}
+                    {fmt(item.actual)}
                   </td>
 
-
                   <td className="
-                    px-4
-                    py-3
+                    px-4 py-3
                     text-right
                     font-mono
                   ">
-                    {fmt(sales)}
+                    {fmt(item.sales)}
                   </td>
 
-
-                  <td
-                    className={`
-                      px-4
-                      py-3
-                      text-right
-                      font-mono
-                      ${
-                        gapPlan >= 0
-                          ? "text-signal-ok"
-                          : "text-signal-warn"
-                      }
-                    `}
-                  >
-
-                    {gapPlan > 0
-                      ? "+"
-                      : ""}
-
+                  <td className={`
+                    px-4 py-3
+                    text-right
+                    font-mono
+                    ${
+                      gapPlan >= 0
+                        ? "text-signal-ok"
+                        : "text-signal-warn"
+                    }
+                  `}>
+                    {gapPlan > 0 ? "+" : ""}
                     {fmt(gapPlan)}
-
                   </td>
 
-
-                  <td
-                    className={`
-                      px-4
-                      py-3
-                      text-right
-                      font-mono
-                      ${
-                        gapSales >= 0
-                          ? "text-signal-ok"
-                          : "text-signal-crit"
-                      }
-                    `}
-                  >
-
-                    {gapSales > 0
-                      ? "+"
-                      : ""}
-
+                  <td className={`
+                    px-4 py-3
+                    text-right
+                    font-mono
+                    ${
+                      gapSales >= 0
+                        ? "text-signal-ok"
+                        : "text-signal-crit"
+                    }
+                  `}>
+                    {gapSales > 0 ? "+" : ""}
                     {fmt(gapSales)}
-
                   </td>
-
 
                   <td className="px-4 py-3">
 
-                    <span
-                      className={`
-                        inline-flex
-                        items-center
-                        gap-2
-                        text-xs
-                        font-medium
-                        ${status.text}
-                      `}
-                    >
+                    <span className={`
+                      inline-flex
+                      items-center
+                      gap-2
+                      text-xs
+                      ${status.text}
+                    `}>
 
-                      <span
-                        className={`
-                          w-2
-                          h-2
-                          rounded-full
-                          ${status.dot}
-                        `}
-                      />
+                      <span className={`
+                        w-2 h-2
+                        rounded-full
+                        ${status.dot}
+                      `} />
 
                       {status.label}
 
@@ -1030,7 +844,6 @@ function DailyStatusTable({
                   </td>
 
                 </tr>
-
               );
 
             })}
@@ -1047,16 +860,14 @@ function DailyStatusTable({
 
 
 /* ============================================================
-   PRODUCTION STATUS
+   STATUS
 ============================================================ */
 
-function getProductionStatus(
+function getStatus(
   actual,
   plan,
   sales
 ) {
-
-  // TARGET
   if (
     plan > 0 &&
     actual >= plan
@@ -1068,7 +879,6 @@ function getProductionStatus(
     };
   }
 
-  // BELOW PLAN
   if (actual >= sales) {
     return {
       label: "Di bawah plan",
@@ -1077,7 +887,6 @@ function getProductionStatus(
     };
   }
 
-  // BELOW SALES
   return {
     label: "Di bawah sales",
     text: "text-signal-crit",
@@ -1087,7 +896,7 @@ function getProductionStatus(
 
 
 /* ============================================================
-   DATE FORMAT
+   DATE
 ============================================================ */
 
 function formatMonth(month) {
@@ -1135,7 +944,7 @@ function formatDateLong(date) {
 
 
 /* ============================================================
-   NUMBER FORMAT
+   NUMBER
 ============================================================ */
 
 function fmt(value) {
@@ -1146,47 +955,17 @@ function fmt(value) {
 
 
 /* ============================================================
-   EMPTY STATE
+   INPUT STYLE
 ============================================================ */
 
-function EmptyState() {
-  return (
-    <main className="
-      max-w-[1600px]
-      mx-auto
-      px-5
-      py-16
-    ">
-
-      <div className="
-        border
-        border-dashed
-        border-base-border
-        rounded-lg
-        py-16
-        text-center
-      ">
-
-        <p className="
-          text-ink-muted
-          mb-3
-        ">
-          Belum ada line yang terdaftar.
-        </p>
-
-        <Link
-          href="/lines"
-          className="
-            text-signal-plan
-            font-medium
-            hover:underline
-          "
-        >
-          Tambah line pertama →
-        </Link>
-
-      </div>
-
-    </main>
-  );
-}
+const inputStyle = `
+  w-full
+  bg-base-panelAlt
+  border border-base-border
+  rounded
+  px-3 py-2
+  text-sm
+  focus:outline-none
+  focus:ring-2
+  focus:ring-signal-plan/60
+`;
