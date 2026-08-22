@@ -48,7 +48,7 @@ export default function SalesPlanChart({
 
     let status = "red";
 
-    if (production >= dailyPlan && dailyPlan > 0) {
+    if (dailyPlan > 0 && production >= dailyPlan) {
       status = "green";
     } else if (production >= sales) {
       status = "orange";
@@ -137,12 +137,14 @@ export default function SalesPlanChart({
           </h2>
 
           <p className="text-xs text-ink-muted mt-0.5">
-            Perbandingan actual sales terhadap kebutuhan
-            produksi dan daily production plan.
+            Perbandingan actual sales, actual production,
+            dan daily production plan.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-3 text-xs font-mono">
+
+          {/* PLAN */}
 
           <Legend
             color={COLORS.blue}
@@ -150,19 +152,19 @@ export default function SalesPlanChart({
             line
           />
 
-          <Legend
-            color={COLORS.green}
-            label="Target"
-          />
+          {/* ACTUAL SALES */}
 
           <Legend
             color={COLORS.orange}
-            label="Di bawah plan"
+            label="Actual Sales"
+            line
           />
 
+          {/* ACTUAL PRODUCTION */}
+
           <Legend
-            color={COLORS.red}
-            label="Di bawah sales"
+            color={COLORS.green}
+            label="Actual Production"
           />
 
         </div>
@@ -176,7 +178,17 @@ export default function SalesPlanChart({
 
       <div className="mb-3">
 
-        <div className="inline-flex items-center gap-2 bg-base-panelAlt border border-base-border rounded px-3 py-2">
+        <div className="
+          inline-flex
+          items-center
+          gap-2
+          bg-base-panelAlt
+          border
+          border-base-border
+          rounded
+          px-3
+          py-2
+        ">
 
           <span
             className="w-5 border-t-2 border-dashed"
@@ -189,7 +201,12 @@ export default function SalesPlanChart({
             Daily Production Plan
           </span>
 
-          <span className="font-mono text-sm font-semibold text-ink-primary">
+          <span className="
+            font-mono
+            text-sm
+            font-semibold
+            text-ink-primary
+          ">
             {fmt(plan)} PCS
           </span>
 
@@ -208,7 +225,7 @@ export default function SalesPlanChart({
           viewBox={`0 0 ${width} ${height}`}
           className="w-full h-full"
           role="img"
-          aria-label="Grafik actual sales dibandingkan production plan"
+          aria-label="Grafik actual sales, actual production dan production plan"
         >
 
           {/* PANEL */}
@@ -268,7 +285,7 @@ export default function SalesPlanChart({
 
 
           {/* =================================================
-              PLAN LINE
+              PRODUCTION PLAN
           ================================================== */}
 
           {plan > 0 && (
@@ -299,18 +316,20 @@ export default function SalesPlanChart({
 
 
           {/* =================================================
-              SALES BAR
+              ACTUAL PRODUCTION - BAR
           ================================================== */}
 
           {chartData.map((item, index) => {
 
-            const sales = item.sales;
+            const production =
+              item.production;
 
             const barX =
               x(index) -
               barWidth / 2;
 
-            const barY = y(sales);
+            const barY =
+              y(production);
 
             const barH =
               baseline - barY;
@@ -323,7 +342,9 @@ export default function SalesPlanChart({
                 : COLORS.red;
 
             return (
-              <g key={`sales-${item.date}-${index}`}>
+              <g
+                key={`production-bar-${item.date}-${index}`}
+              >
 
                 <rect
                   x={barX}
@@ -337,14 +358,14 @@ export default function SalesPlanChart({
 
                   <title>
                     {`${formatDateLong(item.date)}
-                    — Sales ${fmt(sales)} PCS
-                    — Production ${fmt(item.production)} PCS`}
+                    — Production ${fmt(production)} PCS
+                    — Sales ${fmt(item.sales)} PCS`}
                   </title>
 
                 </rect>
 
 
-                {/* VALUE */}
+                {/* PRODUCTION VALUE */}
 
                 <text
                   x={x(index)}
@@ -358,7 +379,7 @@ export default function SalesPlanChart({
                   fontWeight="700"
                   fontFamily="monospace"
                 >
-                  {fmt(sales)}
+                  {fmt(production)}
                 </text>
 
 
@@ -376,7 +397,7 @@ export default function SalesPlanChart({
                 </text>
 
 
-                {/* PRODUCTION */}
+                {/* SALES VALUE */}
 
                 <text
                   x={x(index)}
@@ -386,7 +407,7 @@ export default function SalesPlanChart({
                   fontSize="10"
                   fontFamily="sans-serif"
                 >
-                  Prod {fmt(item.production)}
+                  Sales {fmt(item.sales)}
                 </text>
 
               </g>
@@ -395,7 +416,7 @@ export default function SalesPlanChart({
 
 
           {/* =================================================
-              PRODUCTION LINE
+              ACTUAL SALES - ORANGE DASHED LINE
           ================================================== */}
 
           {chartData.length > 1 && (
@@ -403,31 +424,36 @@ export default function SalesPlanChart({
               points={chartData
                 .map(
                   (item, index) =>
-                    `${x(index)},${y(item.production)}`
+                    `${x(index)},${y(item.sales)}`
                 )
                 .join(" ")}
               fill="none"
-              stroke={COLORS.blue}
-              strokeWidth="2.5"
-              strokeDasharray="6 5"
+              stroke={COLORS.orange}
+              strokeWidth="3"
+              strokeDasharray="7 5"
             />
           )}
 
 
           {/* =================================================
-              PRODUCTION POINTS
+              ACTUAL SALES POINTS
           ================================================== */}
 
           {chartData.map((item, index) => (
             <circle
-              key={`production-${item.date}-${index}`}
+              key={`sales-point-${item.date}-${index}`}
               cx={x(index)}
-              cy={y(item.production)}
+              cy={y(item.sales)}
               r="4"
-              fill={COLORS.blue}
+              fill={COLORS.orange}
               stroke={COLORS.panel}
               strokeWidth="2"
-            />
+            >
+              <title>
+                {`${formatDateLong(item.date)}
+                — Actual Sales ${fmt(item.sales)} PCS`}
+              </title>
+            </circle>
           ))}
 
         </svg>
@@ -439,7 +465,13 @@ export default function SalesPlanChart({
           STATUS SUMMARY
       ====================================================== */}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+      <div className="
+        grid
+        grid-cols-1
+        md:grid-cols-3
+        gap-3
+        mt-3
+      ">
 
         <StatusBox
           color="bg-signal-ok"
@@ -476,7 +508,12 @@ function Legend({
   line = false,
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-ink-muted">
+    <span className="
+      inline-flex
+      items-center
+      gap-1.5
+      text-ink-muted
+    ">
 
       <span
         className={
@@ -509,19 +546,41 @@ function StatusBox({
   description,
 }) {
   return (
-    <div className="flex gap-3 border border-base-border rounded-md p-3 bg-base-panelAlt">
+    <div className="
+      flex
+      gap-3
+      border
+      border-base-border
+      rounded-md
+      p-3
+      bg-base-panelAlt
+    ">
 
       <span
-        className={`w-1 rounded-full ${color} shrink-0`}
+        className={`
+          w-1
+          rounded-full
+          ${color}
+          shrink-0
+        `}
       />
 
       <div>
 
-        <p className="text-xs font-semibold text-ink-primary">
+        <p className="
+          text-xs
+          font-semibold
+          text-ink-primary
+        ">
           {title}
         </p>
 
-        <p className="text-[11px] text-ink-muted mt-1 leading-relaxed">
+        <p className="
+          text-[11px]
+          text-ink-muted
+          mt-1
+          leading-relaxed
+        ">
           {description}
         </p>
 
@@ -540,7 +599,18 @@ function EmptyChart({
   message,
 }) {
   return (
-    <div className="h-72 rounded-lg bg-base-panel border border-base-border flex items-center justify-center text-sm text-ink-muted">
+    <div className="
+      h-72
+      rounded-lg
+      bg-base-panel
+      border
+      border-base-border
+      flex
+      items-center
+      justify-center
+      text-sm
+      text-ink-muted
+    ">
       {message}
     </div>
   );
@@ -559,7 +629,9 @@ function niceMax(value) {
       ? 250
       : 500;
 
-  return Math.ceil(value / step) * step;
+  return Math.ceil(
+    value / step
+  ) * step;
 }
 
 
