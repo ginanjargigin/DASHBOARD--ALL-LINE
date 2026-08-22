@@ -1,134 +1,109 @@
 "use client";
 
-const COLORS = {
-  green: "#35C979",
-  orange: "#F2B033",
-  red: "#EF5757",
-  blue: "#4C8DFF",
-  text: "#E7ECF2",
-  muted: "#8B96A5",
-  faint: "#5B6572",
-  grid: "#29323C",
-  panel: "#141A21",
-};
+import { useMemo } from "react";
 
 export default function OvertimeAnalysis({
-  data = [],
+  records = [],
 }) {
-  if (!data.length) {
-    return (
-      <div className="bg-base-panel border border-base-border rounded-lg p-5">
-        <p className="text-sm text-ink-muted">
-          Belum ada data overtime.
-        </p>
-      </div>
-    );
-  }
+  const data = useMemo(() => {
+    return records
+      .map((record) => {
+        const planOT = Number(record.planOT) || 0;
+        const actualOT = Number(record.actualOT) || 0;
+        const production =
+          Number(record.actualProduction) || 0;
+        const plan =
+          Number(record.planProduction) || 0;
 
-  const chartData = data.map((item) => {
-    const planOT = Number(item.planOT) || 0;
-    const actualOT = Number(item.actualOT) || 0;
-    const production = Number(item.actual) || 0;
-    const sales = Number(item.sales) || 0;
+        const otGap = actualOT - planOT;
 
-    let status = "normal";
+        let status = "ok";
 
-    if (actualOT > planOT && production < sales) {
-      status = "critical";
-    } else if (actualOT > planOT) {
-      status = "warning";
-    } else if (actualOT > 0) {
-      status = "used";
-    }
+        if (actualOT > planOT) {
+          status = "warn";
+        }
+
+        if (
+          actualOT > planOT &&
+          production < plan
+        ) {
+          status = "crit";
+        }
+
+        return {
+          ...record,
+          planOT,
+          actualOT,
+          production,
+          plan,
+          otGap,
+          status,
+        };
+      })
+      .sort((a, b) =>
+        a.date.localeCompare(b.date)
+      );
+  }, [records]);
+
+  const summary = useMemo(() => {
+    let plan = 0;
+    let actual = 0;
+    let daysOT = 0;
+    let daysHighOT = 0;
+
+    data.forEach((item) => {
+      plan += item.planOT;
+      actual += item.actualOT;
+
+      if (item.actualOT > 0) {
+        daysOT++;
+      }
+
+      if (item.actualOT > item.planOT) {
+        daysHighOT++;
+      }
+    });
 
     return {
-      ...item,
-      planOT,
-      actualOT,
-      production,
-      sales,
-      status,
+      plan,
+      actual,
+      gap: actual - plan,
+      daysOT,
+      daysHighOT,
     };
-  });
-
-  const totalPlanOT = chartData.reduce(
-    (sum, item) => sum + item.planOT,
-    0
-  );
-
-  const totalActualOT = chartData.reduce(
-    (sum, item) => sum + item.actualOT,
-    0
-  );
-
-  const totalProduction = chartData.reduce(
-    (sum, item) => sum + item.production,
-    0
-  );
-
-  const totalSales = chartData.reduce(
-    (sum, item) => sum + item.sales,
-    0
-  );
-
-  const overPlanDays = chartData.filter(
-    (item) => item.actualOT > item.planOT
-  ).length;
-
-  const criticalDays = chartData.filter(
-    (item) =>
-      item.actualOT > item.planOT &&
-      item.production < item.sales
-  ).length;
-
-  const maxOT = Math.max(
-    totalPlanOT,
-    ...chartData.map((item) => item.actualOT),
-    1
-  );
-
-  const maxValue = niceMax(maxOT * 1.2);
+  }, [data]);
 
   return (
-    <section className="bg-base-panel border border-base-border rounded-lg p-4">
+    <section className="panel">
 
-      {/* =====================================================
-          HEADER
-      ====================================================== */}
+      {/* HEADER */}
 
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+      <div className="flex items-start justify-between gap-4 mb-5">
 
         <div>
-          <h2 className="font-display font-bold text-xl">
+          <h2 className="font-display font-bold text-lg">
             Overtime Analysis
           </h2>
 
           <p className="text-xs text-ink-muted mt-1">
-            Perbandingan plan overtime dan actual overtime
-            terhadap pencapaian produksi.
+            Perbandingan plan overtime dan actual overtime.
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-3 text-xs font-mono">
+        <div className="flex items-center gap-4 text-[10px] font-mono">
 
           <Legend
-            color={COLORS.blue}
-            label="Plan OT"
-            line
-          />
-
-          <Legend
-            color={COLORS.green}
+            color="bg-signal-ok"
             label="OT sesuai plan"
           />
 
           <Legend
-            color={COLORS.orange}
+            color="bg-signal-warn"
             label="OT > plan"
           />
 
           <Legend
-            color={COLORS.red}
+            color="bg-signal-crit"
             label="OT tinggi + produksi kurang"
           />
 
@@ -137,112 +112,66 @@ export default function OvertimeAnalysis({
       </div>
 
 
-      {/* =====================================================
-          KPI
-      ====================================================== */}
+      {/* SUMMARY */}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-4 gap-3 mb-5">
 
-        <MetricCard
+        <SummaryCard
           label="PLAN OT"
-          value={`${fmt(totalPlanOT)} JAM`}
-          color="text-signal-plan"
+          value={summary.plan}
+          suffix="JAM"
         />
 
-        <MetricCard
+        <SummaryCard
           label="ACTUAL OT"
-          value={`${fmt(totalActualOT)} JAM`}
-          color={
-            totalActualOT > totalPlanOT
-              ? "text-signal-warn"
-              : "text-signal-ok"
+          value={summary.actual}
+          suffix="JAM"
+        />
+
+        <SummaryCard
+          label="GAP OT"
+          value={summary.gap}
+          suffix="JAM"
+          status={
+            summary.gap > 0
+              ? "warn"
+              : "ok"
           }
         />
 
-        <MetricCard
-          label="PRODUKSI"
-          value={`${fmt(totalProduction)} PCS`}
-          color="text-ink-primary"
-        />
-
-        <MetricCard
-          label="SALES"
-          value={`${fmt(totalSales)} PCS`}
-          color={
-            totalProduction >= totalSales
-              ? "text-signal-ok"
-              : "text-signal-crit"
-          }
+        <SummaryCard
+          label="HARI OT"
+          value={summary.daysOT}
+          suffix="HARI"
         />
 
       </div>
 
 
-      {/* =====================================================
-          CHART
-      ====================================================== */}
+      {/* EMPTY */}
 
-      <div className="w-full aspect-[1000/360]">
+      {data.length === 0 ? (
 
-        <svg
-          viewBox="0 0 1000 360"
-          className="w-full h-full"
-          role="img"
-          aria-label="Grafik plan dan actual overtime"
-        >
+        <div className="py-10 text-center text-xs text-ink-faint">
+          Belum ada data overtime.
+        </div>
 
-          <rect
-            x="0"
-            y="0"
-            width="1000"
-            height="360"
-            rx="10"
-            fill={COLORS.panel}
-          />
+      ) : (
 
-          <OvertimeChart
-            data={chartData}
-            maxValue={maxValue}
-          />
+        <div className="space-y-3">
 
-        </svg>
+          {data.map((item) => (
 
-      </div>
+            <OTRow
+              key={`${item.lineId}-${item.date}`}
+              item={item}
+            />
 
+          ))}
 
-      {/* =====================================================
-          ANALYSIS
-      ====================================================== */}
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
-
-        <AnalysisBox
-          color="bg-signal-ok"
-          title="OT TERKONTROL"
-          value={`${fmt(
-            chartData.filter(
-              (item) =>
-                item.actualOT <= item.planOT
-            ).length
-          )} hari`}
-          description="Actual overtime masih berada dalam batas plan."
-        />
-
-        <AnalysisBox
-          color="bg-signal-warn"
-          title="OT DI ATAS PLAN"
-          value={`${fmt(overPlanDays)} hari`}
-          description="Actual overtime melebihi rencana overtime."
-        />
-
-        <AnalysisBox
-          color="bg-signal-crit"
-          title="PERLU EVALUASI"
-          value={`${fmt(criticalDays)} hari`}
-          description="OT tinggi tetapi produksi masih di bawah sales."
-        />
-
-      </div>
+      )}
 
     </section>
   );
@@ -250,283 +179,245 @@ export default function OvertimeAnalysis({
 
 
 /* ============================================================
-   CHART
+   OT ROW
 ============================================================ */
 
-function OvertimeChart({
-  data,
-  maxValue,
-}) {
-  const width = 1000;
-  const height = 360;
+function OTRow({ item }) {
 
-  const pad = {
-    top: 25,
-    right: 30,
-    bottom: 58,
-    left: 70,
-  };
+  const percent =
+    item.planOT > 0
+      ? Math.min(
+          (item.actualOT / item.planOT) * 100,
+          100
+        )
+      : item.actualOT > 0
+        ? 100
+        : 0;
 
-  const innerW =
-    width - pad.left - pad.right;
+  let color = "var(--signal-ok)";
 
-  const innerH =
-    height - pad.top - pad.bottom;
+  if (item.status === "warn") {
+    color = "var(--signal-warn)";
+  }
 
-  const xStep =
-    data.length > 1
-      ? innerW / data.length
-      : innerW;
-
-  const barWidth = Math.min(
-    42,
-    Math.max(18, xStep * 0.42)
-  );
-
-  const baseline =
-    pad.top + innerH;
-
-  const y = (value) =>
-    pad.top +
-    innerH -
-    (value / maxValue) * innerH;
-
-  const x = (index) =>
-    pad.left +
-    xStep * index +
-    xStep / 2;
-
-  const ticks = makeTicks(maxValue, 5);
+  if (item.status === "crit") {
+    color = "var(--signal-crit)";
+  }
 
   return (
-    <>
-      {/* GRID */}
+    <div
+      className="
+        border
+        border-base-border
+        rounded-lg
+        p-3
+        bg-base-panelAlt
+      "
+    >
 
-      {ticks.map((value) => (
-        <g key={value}>
+      {/* TOP */}
 
-          <line
-            x1={pad.left}
-            x2={width - pad.right}
-            y1={y(value)}
-            y2={y(value)}
-            stroke={COLORS.grid}
-            strokeWidth="1"
+      <div className="flex items-center justify-between gap-3">
+
+        <div className="min-w-0">
+
+          <p className="font-display font-semibold text-sm truncate">
+            {formatDate(item.date)}
+          </p>
+
+          <p className="text-[10px] text-ink-faint font-mono mt-0.5">
+            {item.note || "Tidak ada catatan"}
+          </p>
+
+        </div>
+
+
+        <Status
+          status={item.status}
+        />
+
+      </div>
+
+
+      {/* OT VALUES */}
+
+      <div className="grid grid-cols-3 gap-4 mt-3">
+
+        <Metric
+          label="PLAN OT"
+          value={item.planOT}
+        />
+
+        <Metric
+          label="ACTUAL OT"
+          value={item.actualOT}
+        />
+
+        <Metric
+          label="GAP"
+          value={item.otGap}
+          color={
+            item.otGap > 0
+              ? "text-signal-warn"
+              : "text-signal-ok"
+          }
+        />
+
+      </div>
+
+
+      {/* PRODUCTION */}
+
+      <div className="mt-3">
+
+        <div className="flex justify-between text-[9px] font-mono">
+
+          <span className="text-ink-muted">
+            Produksi
+          </span>
+
+          <span className="text-ink-primary">
+            {fmt(item.production)} / {fmt(item.plan)} PCS
+          </span>
+
+        </div>
+
+
+        <div className="h-1.5 bg-base-border rounded-full overflow-hidden mt-1">
+
+          <div
+            className="h-full rounded-full transition-all"
+            style={{
+              width: `${percent}%`,
+              backgroundColor: color,
+            }}
           />
 
-          <text
-            x={pad.left - 12}
-            y={y(value) + 4}
-            textAnchor="end"
-            fill={COLORS.muted}
-            fontSize="12"
-            fontFamily="monospace"
-          >
-            {fmt(value)}
-          </text>
-
-        </g>
-      ))}
-
-
-      {/* Y LABEL */}
-
-      <text
-        x="18"
-        y={pad.top - 7}
-        fill={COLORS.muted}
-        fontSize="11"
-        fontFamily="sans-serif"
-      >
-        JAM
-      </text>
-
-
-      {/* PLAN LINE */}
-
-      {data.length > 0 && (
-        <polyline
-          points={data
-            .map(
-              (item, index) =>
-                `${x(index)},${y(item.planOT)}`
-            )
-            .join(" ")}
-          fill="none"
-          stroke={COLORS.blue}
-          strokeWidth="2"
-          strokeDasharray="7 5"
-        />
-      )}
-
-
-      {/* DATA */}
-
-      {data.map((item, index) => {
-
-        const actualY =
-          y(item.actualOT);
-
-        const actualH =
-          baseline - actualY;
-
-        const color =
-          item.status === "critical"
-            ? COLORS.red
-            : item.status === "warning"
-            ? COLORS.orange
-            : COLORS.green;
-
-        return (
-          <g
-            key={`${item.date}-${index}`}
-          >
-
-            {/* ACTUAL OT */}
-
-            <rect
-              x={
-                x(index) -
-                barWidth / 2
-              }
-              y={actualY}
-              width={barWidth}
-              height={Math.max(
-                actualH,
-                1
-              )}
-              rx="3"
-              fill={color}
-              opacity="0.92"
-            >
-
-              <title>
-                {`${formatDateLong(
-                  item.date
-                )} — Plan OT ${fmt(
-                  item.planOT
-                )} jam — Actual OT ${fmt(
-                  item.actualOT
-                )} jam`}
-              </title>
-
-            </rect>
-
-
-            {/* VALUE */}
-
-            <text
-              x={x(index)}
-              y={Math.max(
-                actualY - 8,
-                pad.top + 12
-              )}
-              textAnchor="middle"
-              fill={COLORS.text}
-              fontSize="11"
-              fontWeight="700"
-              fontFamily="monospace"
-            >
-              {fmt(item.actualOT)}
-            </text>
-
-
-            {/* DATE */}
-
-            <text
-              x={x(index)}
-              y={baseline + 22}
-              textAnchor="middle"
-              fill={COLORS.muted}
-              fontSize="11"
-              fontFamily="monospace"
-            >
-              {formatDate(item.date)}
-            </text>
-
-
-            {/* PLAN VALUE */}
-
-            <text
-              x={x(index)}
-              y={baseline + 39}
-              textAnchor="middle"
-              fill={COLORS.faint}
-              fontSize="10"
-              fontFamily="sans-serif"
-            >
-              Plan {fmt(item.planOT)}
-            </text>
-
-          </g>
-        );
-      })}
-    </>
-  );
-}
-
-
-/* ============================================================
-   METRIC CARD
-============================================================ */
-
-function MetricCard({
-  label,
-  value,
-  color,
-}) {
-  return (
-    <div className="bg-base-panelAlt border border-base-border rounded-md p-3">
-
-      <p className="text-[10px] text-ink-faint uppercase tracking-wide">
-        {label}
-      </p>
-
-      <p
-        className={`font-display font-bold text-lg mt-1 ${color}`}
-      >
-        {value}
-      </p>
-
-    </div>
-  );
-}
-
-
-/* ============================================================
-   ANALYSIS BOX
-============================================================ */
-
-function AnalysisBox({
-  color,
-  title,
-  value,
-  description,
-}) {
-  return (
-    <div className="flex gap-3 border border-base-border rounded-md p-3 bg-base-panelAlt">
-
-      <span
-        className={`w-1 rounded-full ${color} shrink-0`}
-      />
-
-      <div className="min-w-0">
-
-        <p className="text-[10px] font-semibold text-ink-muted">
-          {title}
-        </p>
-
-        <p className="font-mono font-bold text-sm text-ink-primary mt-0.5">
-          {value}
-        </p>
-
-        <p className="text-[11px] text-ink-muted mt-1 leading-relaxed">
-          {description}
-        </p>
+        </div>
 
       </div>
 
     </div>
+  );
+}
+
+
+/* ============================================================
+   SUMMARY CARD
+============================================================ */
+
+function SummaryCard({
+  label,
+  value,
+  suffix,
+  status,
+}) {
+
+  let color = "text-ink-primary";
+
+  if (status === "warn") {
+    color = "text-signal-warn";
+  }
+
+  if (status === "ok") {
+    color = "text-signal-ok";
+  }
+
+  return (
+    <div className="border border-base-border rounded-lg p-3 bg-base-panelAlt">
+
+      <p className="text-[9px] text-ink-muted uppercase">
+        {label}
+      </p>
+
+      <p
+        className={`
+          font-mono
+          font-bold
+          text-xl
+          mt-1
+          ${color}
+        `}
+      >
+        {fmt(value)}
+
+        <span className="text-[9px] ml-1 text-ink-faint">
+          {suffix}
+        </span>
+
+      </p>
+
+    </div>
+  );
+}
+
+
+/* ============================================================
+   METRIC
+============================================================ */
+
+function Metric({
+  label,
+  value,
+  color = "text-ink-primary",
+}) {
+
+  return (
+    <div>
+
+      <p className="text-[9px] text-ink-muted uppercase">
+        {label}
+      </p>
+
+      <p
+        className={`
+          font-mono
+          font-bold
+          text-sm
+          mt-0.5
+          ${color}
+        `}
+      >
+        {value > 0 ? "+" : ""}
+        {fmt(value)}
+
+        <span className="text-[8px] text-ink-faint ml-1">
+          JAM
+        </span>
+
+      </p>
+
+    </div>
+  );
+}
+
+
+/* ============================================================
+   STATUS
+============================================================ */
+
+function Status({ status }) {
+
+  if (status === "crit") {
+    return (
+      <span className="text-[9px] font-mono font-bold text-signal-crit">
+        ● OT TINGGI
+      </span>
+    );
+  }
+
+  if (status === "warn") {
+    return (
+      <span className="text-[9px] font-mono font-bold text-signal-warn">
+        ● OT DI ATAS PLAN
+      </span>
+    );
+  }
+
+  return (
+    <span className="text-[9px] font-mono font-bold text-signal-ok">
+      ● OT SESUAI PLAN
+    </span>
   );
 }
 
@@ -538,107 +429,60 @@ function AnalysisBox({
 function Legend({
   color,
   label,
-  line = false,
 }) {
+
   return (
-    <span className="inline-flex items-center gap-1.5 text-ink-muted">
+    <div className="flex items-center gap-1.5">
 
       <span
-        className={
-          line
-            ? "w-5 border-t-2 border-dashed"
-            : "w-2.5 h-2.5 rounded-sm"
-        }
-        style={{
-          borderColor: color,
-          backgroundColor: line
-            ? "transparent"
-            : color,
-        }}
+        className={`
+          w-2
+          h-2
+          rounded-sm
+          ${color}
+        `}
       />
 
-      {label}
+      <span className="text-ink-muted">
+        {label}
+      </span>
 
-    </span>
+    </div>
   );
 }
 
 
 /* ============================================================
-   SCALE
+   DATE
 ============================================================ */
-
-function niceMax(value) {
-  const step =
-    value <= 5
-      ? 1
-      : value <= 20
-      ? 2
-      : 5;
-
-  return Math.max(
-    step,
-    Math.ceil(value / step) * step
-  );
-}
-
-
-function makeTicks(
-  max,
-  count
-) {
-  return Array.from(
-    { length: count + 1 },
-    (_, index) =>
-      (max / count) * index
-  );
-}
-
-
-/* ============================================================
-   FORMAT
-============================================================ */
-
-function fmt(value) {
-  return Number(value || 0)
-    .toLocaleString("id-ID", {
-      maximumFractionDigits: 1,
-    });
-}
-
 
 function formatDate(date) {
+
   if (!date) return "-";
 
-  const [
-    year,
-    month,
-    day,
-  ] = date.split("-");
+  const d = new Date(
+    `${date}T00:00:00`
+  );
 
-  return `${day}/${month}`;
-}
-
-
-function formatDateLong(date) {
-  if (!date) return "-";
-
-  const [
-    year,
-    month,
-    day,
-  ] = date.split("-");
-
-  return new Date(
-    Number(year),
-    Number(month) - 1,
-    Number(day)
-  ).toLocaleDateString(
+  return d.toLocaleDateString(
     "id-ID",
     {
+      weekday: "short",
       day: "2-digit",
       month: "short",
       year: "numeric",
     }
   );
+}
+
+
+/* ============================================================
+   NUMBER
+============================================================ */
+
+function fmt(value) {
+
+  return Math.round(
+    Number(value) || 0
+  ).toLocaleString("id-ID");
 }
