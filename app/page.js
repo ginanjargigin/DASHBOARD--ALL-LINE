@@ -262,8 +262,8 @@ export default function DashboardPage() {
             </p>
           </div>
 
-           {/* RIGHT HEADER */}
-        
+          {/* RIGHT HEADER */}
+
         <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
         
           <Link
@@ -302,7 +302,6 @@ export default function DashboardPage() {
           />
         
         </div>
-
       {/* =====================================================
           FILTER BAR
       ====================================================== */}
