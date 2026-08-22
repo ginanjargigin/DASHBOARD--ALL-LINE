@@ -301,10 +301,12 @@ export default function DashboardPage() {
             value={summary.red}
           />
         
-        </div>
- 
-    </div>
-  </header>
+          </div> 
+            
+      </div>
+            
+    </header>
+
       {/* =====================================================
           FILTER BAR
       ====================================================== */}
