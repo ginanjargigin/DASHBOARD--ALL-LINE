@@ -271,7 +271,7 @@ export default function TVPage() {
 
           </div>
        </div>
- </header>
+ </h>
 
           {/* CLOCK */}
 
