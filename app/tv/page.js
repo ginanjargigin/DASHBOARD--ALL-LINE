@@ -335,6 +335,29 @@ export default function TVPage() {
       </header>
 
       {/* =====================================================
+          LINE GRID
+      ====================================================== */}
+
+      <section
+        className="
+          grid
+          grid-cols-5
+          gap-3
+          mt-3
+        "
+      >
+        {lineData.map((item) => (
+          <LineStatusCard
+            key={item.line.id}
+            line={item.line}
+            production={item.production}
+            plan={item.plan}
+            sales={item.sales}
+            hasData={item.hasData}
+          />
+        ))}
+      </section>
+      {/* =====================================================
           FOOTER
       ====================================================== */}
 
