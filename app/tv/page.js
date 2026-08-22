@@ -216,23 +216,18 @@ export default function TVPage() {
           >
           </Link>
         
-          <h1 className="font-display font-bold text-2xl tracking-tight">
-            PAPAN PRODUKSI
-         
-        
+          <div>
+        <h1 className="font-display font-bold text-2xl tracking-tight">
+          PAPAN PRODUKSI{" "}
           <span className="text-signal-plan font-display font-bold">
             TV
           </span>
-         </h1>
-       
-          </div>
-
-          <p className="text-xs xl:text-sm text-ink-muted mt-0.5">
-            Monitoring realtime seluruh line produksi
-          </p>
-
-        </div>
-
+        </h1>
+      
+        <p className="text-xs text-ink-muted mt-1">
+          Monitoring realtime seluruh line produksi
+        </p>
+      </div>
 
         {/* RIGHT HEADER */}
 
