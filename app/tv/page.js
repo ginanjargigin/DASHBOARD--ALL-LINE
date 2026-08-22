@@ -249,7 +249,7 @@ export default function TVPage() {
               text-xs
               xl:text-sm
             "
-          >
+          />
 
             <StatusSummary
               color="bg-signal-ok"
@@ -275,6 +275,7 @@ export default function TVPage() {
             />
 
           </div>
+       </div>
 
 
           {/* CLOCK */}
@@ -323,9 +324,7 @@ export default function TVPage() {
 
         </div>
       
-      </div>
-
-
+   
       </header>
 
 
