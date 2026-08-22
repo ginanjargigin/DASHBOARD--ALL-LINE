@@ -166,10 +166,10 @@ export default function TVPage() {
       "
     >
 
-      {/* =====================================================
+           {/* =====================================================
           TV HEADER
       ====================================================== */}
-
+      
       <header
         className="
           flex
@@ -181,32 +181,24 @@ export default function TVPage() {
           border-base-border
         "
       >
-
-        {/* TITLE */}
-
-        <div className="min-w-0">
-
-          <div className="flex items-center gap-3">
-
-            <h1
-              className="
-                font-display
-                font-bold
-                text-2xl
-                xl:text-3xl
-                tracking-tight
-              "
-           > 
-             
-             <div className="flex items-center gap-3">
-        
+      
+        {/* LEFT HEADER */}
+      
+        <div className="flex items-center gap-3 min-w-0">
+      
+          {/* BACK TO DASHBOARD */}
+      
           <Link
             href="/"
             className="
-              flex items-center justify-center
-              w-8 h-8
+              flex
+              items-center
+              justify-center
+              w-8
+              h-8
               rounded
-              border border-base-border
+              border
+              border-base-border
               text-ink-muted
               hover:text-ink-primary
               hover:border-signal-plan
@@ -214,27 +206,48 @@ export default function TVPage() {
             "
             title="Kembali ke Dashboard"
           >
+            ←
           </Link>
-        
-          <div>
-        <h1 className="font-display font-bold text-2xl tracking-tight">
-          PAPAN PRODUKSI{" "}
-          <span className="text-signal-plan font-display font-bold">
-            TV
-          </span>
-        </h1>
       
-        <p className="text-xs text-ink-muted mt-1">
-          Monitoring realtime seluruh line produksi
-        </p>
-      </div>
-
+      
+          {/* TITLE */}
+      
+          <div className="min-w-0">
+      
+            <div className="flex items-center gap-3">
+      
+              <h1
+                className="
+                  font-display
+                  font-bold
+                  text-2xl
+                  xl:text-3xl
+                  tracking-tight
+                "
+              >
+                PAPAN PRODUKSI{" "}
+                <span className="text-signal-plan">
+                  TV
+                </span>
+              </h1>
+      
+            </div>
+      
+            <p className="text-xs text-ink-muted mt-1">
+              Monitoring realtime seluruh line produksi
+            </p>
+      
+          </div>
+      
+        </div>
+      
+      
         {/* RIGHT HEADER */}
-
+      
         <div className="flex items-center gap-6 shrink-0">
-
+      
           {/* SUMMARY */}
-         
+      
           <div
             className="
               flex
@@ -244,39 +257,39 @@ export default function TVPage() {
               text-xs
               xl:text-sm
             "
-          />
-
+          >
+      
             <StatusSummary
               color="bg-signal-ok"
               value={summary.green}
               label="TARGET"
             />
-
+      
             <StatusSummary
               color="bg-signal-warn"
               value={summary.orange}
               label="BELOW PLAN"
             />
-
+      
             <StatusSummary
               color="bg-signal-crit"
               value={summary.red}
               label="BELOW SALES"
             />
-           <StatusSummary
+      
+            <StatusSummary
               color="bg-base-border"
               value={summary.noData}
               label="NO DATA"
             />
-
+      
           </div>
-       </div>
- </h>
-
+      
+      
           {/* CLOCK */}
-
+      
           <div className="text-right">
-
+      
             <p
               className="
                 font-mono
@@ -295,7 +308,7 @@ export default function TVPage() {
                   })
                 : "--:--:--"}
             </p>
-
+      
             <p
               className="
                 text-[10px]
@@ -314,44 +327,12 @@ export default function TVPage() {
                   })
                 : ""}
             </p>
-
+      
           </div>
-
+      
         </div>
       
-   
       </header>
-
-
-      {/* =====================================================
-          LINE GRID
-      ====================================================== */}
-
-      <section
-        className="
-          grid
-          grid-cols-5
-          grid-rows-2
-          gap-3
-          mt-3
-          items-start
-        "
-      >
-
-        {lineData.map((item) => (
-
-          <LineStatusCard
-            key={item.line.id}
-            line={item.line}
-            production={item.production}
-            plan={item.plan}
-            sales={item.sales}
-            hasData={item.hasData}
-          />
-
-        ))}
-
-      </section>
 
       {/* =====================================================
           FOOTER
